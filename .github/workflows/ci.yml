@@ -99,7 +99,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up kubectl
-        uses: azure/setup-kubectl@v4
+        uses: azure/setup-kubectl@v5
 
       - name: Validate manifests client-side
         run: kubectl apply --dry-run=client --validate=false -f k8s/deployment.yaml
