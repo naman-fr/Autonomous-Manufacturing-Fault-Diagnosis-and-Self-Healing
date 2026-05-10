@@ -65,8 +65,39 @@ flowchart LR
 python -m venv .venv
 . .venv/Scripts/activate
 pip install -r requirements.txt
-pip install -e ".[dev,app,mlops]"
+pip install -e ".[dev,backend,app,mlops]"
 pytest
+```
+
+## Run It Locally
+
+### Option A: zero-extra local console
+
+This path runs the API and browser frontend with the same local Python environment used by the core package.
+
+```bash
+$env:PYTHONPATH="src"
+python scripts/local_server.py
+```
+
+Open [http://127.0.0.1:8765](http://127.0.0.1:8765), click **Run Demo**, or upload `examples/bearing_sample.csv`.
+
+### Option B: production FastAPI backend
+
+```bash
+uvicorn amfd.backend.api:app --host 0.0.0.0 --port 8000 --reload
+```
+
+Useful checks:
+
+```bash
+curl http://127.0.0.1:8000/health
+curl http://127.0.0.1:8000/api/v1/demo
+```
+
+### Option C: Streamlit dashboard
+
+```bash
 streamlit run app/streamlit_app.py
 ```
 

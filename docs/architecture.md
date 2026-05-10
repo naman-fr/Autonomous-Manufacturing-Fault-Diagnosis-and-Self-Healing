@@ -32,3 +32,19 @@ flowchart TD
     validate -->|"approved"| report
 ```
 
+## Runtime Layers
+
+```mermaid
+flowchart LR
+    browser["Web console / Streamlit"] --> api["FastAPI backend"]
+    browser --> local["Local stdlib server"]
+    api --> service["DiagnosisService"]
+    local --> service
+    service --> graph["LangGraph workflow"]
+    graph --> tools["FFT, anomaly, causal, prescription, safety tools"]
+    graph --> rag["Hybrid RAG"]
+    graph --> report["IncidentReport JSON"]
+    report --> mlflow["MLflow"]
+    report --> prom["Prometheus"]
+```
+

@@ -11,9 +11,8 @@ COPY app ./app
 COPY configs ./configs
 COPY examples ./examples
 
-RUN pip install --no-cache-dir -e ".[app,mlops]"
+RUN pip install --no-cache-dir -e ".[backend,app,mlops]"
 
-EXPOSE 8501
+EXPOSE 8000 8501
 
-CMD ["streamlit", "run", "app/streamlit_app.py", "--server.address=0.0.0.0"]
-
+CMD ["uvicorn", "amfd.backend.api:app", "--host=0.0.0.0", "--port=8000"]
