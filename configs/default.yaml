@@ -1,0 +1,14 @@
+sampling_rate_hz: 12000
+window_seconds: 1.0
+anomaly_threshold: 0.72
+high_risk_threshold: 0.88
+max_refinement_loops: 2
+allowed_actions:
+  - inspect_bearing
+  - reduce_load
+  - schedule_shutdown
+  - rebalance_rotor
+  - align_coupling
+  - lubricate_bearing
+  - recalibrate_rpm
+
