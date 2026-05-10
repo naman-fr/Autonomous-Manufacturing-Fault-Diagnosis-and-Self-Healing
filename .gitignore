@@ -16,4 +16,4 @@ data/raw/
 data/processed/
 models/
 reports/*.json
-
+local-server.*.log

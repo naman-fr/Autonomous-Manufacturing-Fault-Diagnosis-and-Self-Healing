@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AMFD Industrial Console</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">Autonomous Manufacturing Fault Diagnosis</p>
+        <h1>Industrial AI Operations Console</h1>
+      </div>
+      <div class="status" id="healthStatus">Checking backend</div>
+    </header>
+
+    <main class="layout">
+      <section class="workspace">
+        <div class="toolbar">
+          <label>
+            Machine ID
+            <input id="machineId" value="PUMP-101" />
+          </label>
+          <label class="wide">
+            Operator Notes
+            <input id="operatorNotes" placeholder="Optional notes, PII will be redacted" />
+          </label>
+          <label class="checkline">
+            <input id="forceReview" type="checkbox" />
+            Human review
+          </label>
+          <button id="demoBtn">Run Demo</button>
+        </div>
+
+        <div class="upload">
+          <input id="csvFile" type="file" accept=".csv,text/csv" />
+          <button id="uploadBtn">Diagnose CSV</button>
+          <span>CSV needs a <code>vibration</code> column and optional <code>rpm</code>.</span>
+        </div>
+
+        <div class="metrics">
+          <article>
+            <span>Severity</span>
+            <strong id="severity">--</strong>
+          </article>
+          <article>
+            <span>Anomaly</span>
+            <strong id="score">--</strong>
+          </article>
+          <article>
+            <span>Confidence</span>
+            <strong id="confidence">--</strong>
+          </article>
+          <article>
+            <span>Latency</span>
+            <strong id="latency">--</strong>
+          </article>
+        </div>
+
+        <section class="panel">
+          <div class="panel-head">
+            <h2>Signal Window</h2>
+            <span id="sampleCount">No samples loaded</span>
+          </div>
+          <canvas id="waveform" width="1100" height="280"></canvas>
+        </section>
+
+        <section class="grid">
+          <article class="panel">
+            <h2>Root Cause</h2>
+            <p id="rootCause" class="headline">Waiting for diagnosis</p>
+            <ul id="evidence"></ul>
+          </article>
+          <article class="panel">
+            <h2>Recommended Actions</h2>
+            <div id="actions" class="stack"></div>
+          </article>
+        </section>
+
+        <section class="grid">
+          <article class="panel">
+            <h2>Hybrid RAG Evidence</h2>
+            <div id="rag" class="stack"></div>
+          </article>
+          <article class="panel">
+            <h2>Agent Timeline</h2>
+            <div id="timeline" class="timeline"></div>
+          </article>
+        </section>
+
+        <section class="panel">
+          <div class="panel-head">
+            <h2>Incident JSON</h2>
+            <button id="copyBtn">Copy</button>
+          </div>
+          <pre id="jsonOutput">{}</pre>
+        </section>
+      </section>
+    </main>
+
+    <script src="/app.js"></script>
+  </body>
+</html>
+
