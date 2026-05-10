@@ -1,52 +1,62 @@
 # Autonomous Manufacturing Fault Diagnosis and Self-Healing
 
-LangGraph-powered agentic AI system for real-time industrial fault diagnosis, root-cause analysis, prescriptive maintenance, and safe recovery planning for rotating machinery.
+Production-grade reference implementation for a LangGraph-powered multi-agent system that diagnoses rotating-machinery faults from vibration/RPM signals and emits safety-gated self-healing maintenance plans.
 
-The project is designed as an interview-grade, production-oriented reference implementation: streaming sensor ingestion, signal-processing tools, ML-style anomaly detection, multi-agent orchestration, RAG-ready maintenance context, audit-friendly action plans, and deployable MLOps scaffolding.
+The project is intentionally deployable without an API key: deterministic signal tools run locally, while the agent/tool registry is ready for Claude, GPT, Gemini, Llama, vLLM, or any LangChain-compatible chat model through `.bind_tools()`.
 
-## What This Builds
-
-- **Fault detection** from vibration/RPM streams using FFT features, statistical health indicators, and configurable anomaly thresholds.
-- **Agentic diagnosis** with a LangGraph workflow that routes cases through detection, root-cause analysis, prescription, and validation nodes.
-- **Self-healing recommendations** that emit structured, safety-gated JSON actions instead of free-form advice.
-- **Synthetic fault augmentation hooks** for VAE-WGAN or RL-based data expansion experiments.
-- **Operator dashboard** with CSV upload, waveform/FFT plots, diagnosis trace, and downloadable incident report.
-- **MLOps baseline** with Docker, MLflow-friendly experiment entry points, Prometheus metrics hooks, and test coverage.
-
-## Architecture
+## Architecture Diagram
 
 ```mermaid
 flowchart LR
-    A["Sensor stream / CSV upload"] --> B["Signal preprocessing"]
-    B --> C["FFT + health features"]
-    C --> D["Detection agent"]
-    D --> E{"Confidence >= threshold?"}
-    E -- "No" --> F["Refinement loop"]
-    F --> C
-    E -- "Yes" --> G["Diagnosis supervisor"]
-    G --> H["RAG maintenance context"]
-    G --> I["Root-cause specialist"]
-    I --> J["Prescription agent"]
-    J --> K["Safety validator"]
-    K --> L["Action plan + audit report"]
+    A["Kafka stream / CSV upload"] --> B["Supervisor agent"]
+    B --> C["Guardrails + PII redaction"]
+    C --> D["DataAug specialist<br/>VAE-WGAN-GP hook"]
+    D --> E["Detector specialist<br/>FFT + anomaly tools"]
+    E --> F{"confidence >= policy?"}
+    F -- "No" --> D
+    F -- "Yes" --> G["Analyzer specialist<br/>causal inference"]
+    G --> H["Hybrid RAG<br/>BM25 + ColBERT-style rerank"]
+    H --> I["Prescriber specialist<br/>JSON recovery plan"]
+    I --> J["Safety validator"]
+    J --> K{"human review needed?"}
+    K -- "Yes" --> L["Human-in-loop approval"]
+    K -- "No" --> M["Incident report"]
+    L --> M
+    M --> N["Streamlit + MLflow + Prometheus"]
 ```
+
+## What Is Included
+
+- LangGraph `StateGraph` workflow with cycles, conditional edges, persistence, and a human-review branch.
+- Supervisor plus specialist agents: Guardrails, DataAug, Detector, Analyzer, RAG, Prescriber, Safety.
+- A2A communication through typed `AgentMessage` objects in the graph state.
+- Six custom LangChain tools bound through `bind_manufacturing_tools(llm)`.
+- Hybrid retrieval scaffold with BM25 scoring and lightweight ColBERT-style late-interaction reranking.
+- VAE-WGAN-GP augmentation hook for future trained synthetic fault generation.
+- Kafka consumer scaffold for streaming `SensorWindow` payloads.
+- Streamlit dashboard with CSV upload, Plotly visualization, RAG evidence, metrics, and JSON reports.
+- MLOps assets: MLflow tracker, Prometheus metrics, Docker, Kubernetes, GitHub Actions, eval harness.
+- Security layer: local guardrails, prompt-injection checks, email/phone redaction, safety validator.
 
 ## Repository Layout
 
 ```text
 .
-├── app/                         # Streamlit operator dashboard
-├── configs/                     # Runtime and threshold config
-├── docs/                        # Architecture and research notes
-├── examples/                    # Demo sensor files
-├── src/amfd/                    # Python package
-│   ├── agents/                  # LangGraph workflow nodes
-│   ├── core/                    # Config, domain models, safety policy
-│   ├── data/                    # Ingestion and synthetic data helpers
-│   ├── ml/                      # Features, anomaly scoring, augmentation hooks
-│   ├── rag/                     # Maintenance knowledge retriever
-│   └── telemetry/               # Metrics and tracing helpers
-└── tests/                       # Unit and workflow tests
+|-- app/                         # Streamlit operator dashboard
+|-- configs/                     # Runtime and threshold config
+|-- docs/                        # Architecture, prompts, research notes
+|-- examples/                    # Demo sensor files
+|-- k8s/                         # Kubernetes manifests
+|-- src/amfd/                    # Python package
+|   |-- agents/                  # LangGraph workflow, prompts, tools, LLM binding
+|   |-- core/                    # Config, domain models, safety policy
+|   |-- data/                    # CSV ingestion, synthetic data, Kafka streaming
+|   |-- ml/                      # Features, anomaly scoring, augmentation hook
+|   |-- mlops/                   # MLflow tracking
+|   |-- rag/                     # Hybrid retriever
+|   |-- security/                # Guardrails and PII redaction
+|   `-- telemetry/               # Metrics helpers
+`-- tests/                       # Unit and workflow tests
 ```
 
 ## Quick Start
@@ -54,12 +64,11 @@ flowchart LR
 ```bash
 python -m venv .venv
 . .venv/Scripts/activate
-pip install -e ".[dev,app]"
+pip install -r requirements.txt
+pip install -e ".[dev,app,mlops]"
 pytest
 streamlit run app/streamlit_app.py
 ```
-
-For a no-dataset demo, use `examples/bearing_sample.csv` in the dashboard.
 
 ## CLI Demo
 
@@ -67,19 +76,53 @@ For a no-dataset demo, use `examples/bearing_sample.csv` in the dashboard.
 python -m amfd.run_diagnosis examples/bearing_sample.csv --machine-id PUMP-101
 ```
 
-The command prints a JSON incident report with detection evidence, inferred root cause, recommended recovery steps, and validation status.
+## Eval
 
-## Research Basis
+```bash
+python eval.py
+```
 
-This implementation is inspired by multi-agent self-healing manufacturing lines and LLM-based fault-diagnosis research. It adapts those ideas to rotating-equipment diagnostics where vibration features, FFT signatures, and maintenance history can be combined with agentic reasoning.
+Current local synthetic benchmark target:
 
-The code intentionally keeps safety-sensitive actuation behind a validator. Recovery output is a recommended plan, not direct machine control.
+| Metric | Target | Harness |
+| --- | ---: | --- |
+| Fault-class F1 proxy | > 0.95 | `eval.py` synthetic bearing cases |
+| Diagnosis latency | < 2000 ms | graph end-to-end timer |
+| Safety approval traceability | 100% | typed report validation |
+| Operator explainability | 100% reports include evidence | RAG + detector evidence |
 
-## Roadmap
+These are engineering targets, not claims about the untrained baseline on CWRU/PU. Real benchmark numbers should be reported after training/evaluating against CWRU and Paderborn splits.
 
-- Add CWRU bearing dataset loader and benchmark scripts.
-- Replace heuristic detector with trained CNN/transformer fault classifier.
-- Add FAISS-backed retrieval over manuals, CMMS tickets, and historical incidents.
-- Add MLflow experiment tracking for augmentation and detector comparison.
-- Add Kubernetes manifests and online streaming ingestion through Kafka.
+## Deployment
 
+```bash
+docker compose up --build
+kubectl apply -f k8s/deployment.yaml
+```
+
+Production notes:
+
+- Run Streamlit separately from graph workers for high-throughput streaming use cases.
+- Use Kafka for sensor windows and persist graph checkpoints to Redis/Postgres in production.
+- Replace the heuristic detector with a trained CNN/transformer/TensorRT model behind the same tool interface.
+- Run vLLM/TensorRT-LLM as an inference backend when using local open-weight models.
+- Keep all maintenance actions advisory until integrated with plant-approved PLC/SCADA controls.
+
+## Demo Video Script
+
+1. Open the dashboard and upload `examples/bearing_sample.csv`.
+2. Show waveform, anomaly score, root cause, and RAG evidence.
+3. Open the JSON report and highlight the agent trace.
+4. Force human review through metadata in a CLI run and show the review branch.
+5. Run `python eval.py` and show latency/F1 target output.
+6. Show Docker/K8s/CI files to demonstrate deployability.
+
+## Research Alignment
+
+- Kevin Patel, "Agentic AI for Self-Healing Production Lines: Autonomous Root Cause Analysis & Correction", JISEM, 2024. DOI: 10.52783/jisem.v9i4s.12427.
+- Xian Yeow Lee, Lasitha Vidyaratne, Ahmed Farahat, Chetan Gupta, "Exploring LLM-based Agentic Frameworks for Fault Diagnosis", PHM Society, 2025. DOI: 10.36001/phmconf.2025.v17i1.4350.
+- CWRU Bearing Data Center and Paderborn University Bearing Data Center are the intended benchmark data sources for seeded and naturally damaged bearing faults.
+
+## Safety
+
+This project generates advisory maintenance plans only. It does not directly actuate industrial equipment. Critical actions require approval through the safety and human-review layers before plant integration.
