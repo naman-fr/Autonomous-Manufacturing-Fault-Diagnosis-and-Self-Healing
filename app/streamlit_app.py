@@ -64,6 +64,17 @@ with right:
 st.subheader("Evidence")
 st.write(report.detection.evidence)
 
+st.subheader("Hybrid RAG Evidence")
+for item in report.rag_evidence:
+    st.write(f"**{item.source}** · BM25 {item.bm25_score:.2f} · Rerank {item.rerank_score:.2f}")
+    st.caption(item.text)
+
+st.subheader("Runtime Metrics")
+metric_cols = st.columns(3)
+metric_cols[0].metric("Latency", f"{report.metrics.latency_ms:.0f} ms")
+metric_cols[1].metric("Tool Calls", report.metrics.tool_calls)
+metric_cols[2].metric("Est. OEE Gain", f"{report.metrics.estimated_oee_gain_percent:.2f}%")
+
 st.subheader("Agent Trace")
 st.code(" -> ".join(result.get("trace", [])))
 
@@ -73,4 +84,3 @@ st.download_button(
     file_name=f"{report.incident_id}.json",
     mime="application/json",
 )
-

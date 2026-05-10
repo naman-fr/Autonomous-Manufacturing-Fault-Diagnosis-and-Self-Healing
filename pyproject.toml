@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">=3.10"
 authors = [{ name = "Naman" }]
 dependencies = [
-    "langgraph>=0.2.60",
+    "langgraph>=0.3.0",
     "langchain-core>=0.3.28",
     "numpy>=1.26",
     "pandas>=2.2",
@@ -34,6 +34,7 @@ dev = [
 mlops = [
     "mlflow>=2.14",
     "prometheus-client>=0.20",
+    "confluent-kafka>=2.5",
 ]
 
 [project.scripts]
@@ -58,4 +59,3 @@ python_version = "3.10"
 warn_unused_configs = true
 ignore_missing_imports = true
 strict = true
-
