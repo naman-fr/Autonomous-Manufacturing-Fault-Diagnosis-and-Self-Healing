@@ -1,23 +1,105 @@
 name: ci
 
 on:
-  push:
   pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  test:
+  python-quality:
+    name: python ${{ matrix.python-version }}
     runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-      - name: Install package
-        run: pip install -e ".[dev]"
-      - name: Lint
-        run: ruff check .
-      - name: Type check
-        run: mypy src
-      - name: Test
-        run: pytest --cov=amfd --cov-report=term-missing
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12"]
 
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: |
+            pyproject.toml
+            requirements.txt
+
+      - name: Install test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev,backend]"
+
+      - name: Ruff format check
+        run: python -m ruff format --check .
+
+      - name: Ruff lint
+        run: python -m ruff check .
+
+      - name: Type check
+        run: python -m mypy src tests
+
+      - name: Unit tests
+        run: python -m pytest --cov=amfd --cov-report=term-missing --cov-report=xml
+
+      - name: Evaluation smoke test
+        run: python eval.py
+
+      - name: Backend service smoke test
+        run: |
+          python - <<'PY'
+          from amfd.backend.service import DiagnosisService
+
+          response = DiagnosisService().demo("CI-PUMP-101")
+          report = response.report
+          assert report.machine_id == "CI-PUMP-101"
+          assert report.actions
+          assert report.rag_evidence
+          assert report.validation.approved
+          print(report.root_cause.label, report.detection.severity.value)
+          PY
+
+  docker-build:
+    name: docker build
+    runs-on: ubuntu-latest
+    needs: python-quality
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          tags: amfd-api:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  manifest-check:
+    name: kubernetes manifest check
+    runs-on: ubuntu-latest
+    needs: python-quality
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v4
+
+      - name: Validate manifests client-side
+        run: kubectl apply --dry-run=client --validate=false -f k8s/deployment.yaml

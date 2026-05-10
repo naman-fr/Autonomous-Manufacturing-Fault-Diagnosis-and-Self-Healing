@@ -131,6 +131,24 @@ docker compose up --build
 kubectl apply -f k8s/deployment.yaml
 ```
 
+## CI/CD
+
+GitHub Actions runs a full correctness gate on every PR and push to `main`:
+
+- Ruff format and lint checks.
+- Mypy over `src` and `tests`.
+- Pytest with coverage.
+- Synthetic evaluation smoke test.
+- Backend service smoke test.
+- Docker image build.
+- Kubernetes manifest dry-run validation.
+
+Release flow:
+
+1. Push a version tag such as `v0.1.0`, or run the `cd` workflow manually.
+2. The pipeline builds and pushes `ghcr.io/naman-fr/amfd-api`.
+3. Kubernetes deployment is gated behind the repository variable `ENABLE_K8S_DEPLOY=true`, the `production` environment, and a `KUBE_CONFIG` secret.
+
 Production notes:
 
 - Run Streamlit separately from graph workers for high-throughput streaming use cases.
