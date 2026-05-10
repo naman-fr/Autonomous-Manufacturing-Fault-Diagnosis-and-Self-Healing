@@ -33,4 +33,3 @@ def test_backend_service_diagnoses_window() -> None:
     assert response.report.root_cause.label == "bearing_defect"
     assert response.report.rag_evidence
     assert response.report.guardrails[0].category == "pii.phone"
-

@@ -62,4 +62,3 @@ def run_eval() -> dict[str, float]:
 
 if __name__ == "__main__":
     print(json.dumps(run_eval(), indent=2))
-

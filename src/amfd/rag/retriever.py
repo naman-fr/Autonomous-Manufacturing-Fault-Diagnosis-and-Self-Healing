@@ -19,4 +19,3 @@ class MaintenanceRetriever:
         if features.rpm_mean and features.rpm_mean < 1750:
             ranked.insert(0, "RPM sag can point to load, drive, or control-loop instability.")
         return ranked[:limit]
-

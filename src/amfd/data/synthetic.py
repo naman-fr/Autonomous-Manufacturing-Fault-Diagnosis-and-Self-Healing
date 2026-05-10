@@ -24,7 +24,8 @@ def generate_bearing_window(
         t = i / sampling_rate_hz
         base = 0.04 * math.sin(2 * math.pi * 30 * t)
         fault = fault_intensity * math.sin(2 * math.pi * fault_frequency_hz * t)
-        impulse = fault_intensity * 0.8 if i % max(1, int(sampling_rate_hz / fault_frequency_hz)) == 0 else 0
+        impulse_period = max(1, int(sampling_rate_hz / fault_frequency_hz))
+        impulse = fault_intensity * 0.8 if i % impulse_period == 0 else 0
         noise = rng.gauss(0, 0.015)
         vibration.append(base + fault + impulse + noise)
         rpm.append(1800 + rng.gauss(0, 2))
@@ -35,4 +36,3 @@ def generate_bearing_window(
         rpm=rpm,
         sampling_rate_hz=sampling_rate_hz,
     )
-

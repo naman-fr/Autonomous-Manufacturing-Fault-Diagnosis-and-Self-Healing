@@ -33,7 +33,9 @@ class HybridMaintenanceRetriever:
             ),
         }
         self._tokenized = {key: self._tokens(text) for key, text in self.documents.items()}
-        self._avg_len = sum(len(tokens) for tokens in self._tokenized.values()) / len(self._tokenized)
+        self._avg_len = sum(len(tokens) for tokens in self._tokenized.values()) / len(
+            self._tokenized
+        )
 
     def retrieve(self, features: FeatureVector, limit: int = 3) -> list[RetrievedEvidence]:
         query = self._query_from_features(features)
@@ -50,9 +52,12 @@ class HybridMaintenanceRetriever:
                     rerank_score=round(rerank, 4),
                 )
             )
-        return sorted(candidates, key=lambda item: (item.rerank_score, item.bm25_score), reverse=True)[
-            :limit
-        ]
+        ranked = sorted(
+            candidates,
+            key=lambda item: (item.rerank_score, item.bm25_score),
+            reverse=True,
+        )
+        return ranked[:limit]
 
     def _bm25(self, query: list[str], document: list[str]) -> float:
         counts = Counter(document)

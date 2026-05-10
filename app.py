@@ -11,4 +11,3 @@ def build_app(config_path: str | None = None):
 
 
 graph = build_app()
-

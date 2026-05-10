@@ -8,7 +8,12 @@ from amfd.core.models import SensorWindow
 
 
 class KafkaSensorConsumer:
-    def __init__(self, bootstrap_servers: str, topic: str, group_id: str = "amfd-diagnosis") -> None:
+    def __init__(
+        self,
+        bootstrap_servers: str,
+        topic: str,
+        group_id: str = "amfd-diagnosis",
+    ) -> None:
         self.bootstrap_servers = bootstrap_servers
         self.topic = topic
         self.group_id = group_id
@@ -32,8 +37,10 @@ class KafkaSensorConsumer:
                 message = consumer.poll(1.0)
                 if message is None or message.error():
                     continue
-                payload: dict[str, Any] = json.loads(message.value().decode("utf-8"))
+                value = message.value()
+                if value is None:
+                    continue
+                payload: dict[str, Any] = json.loads(value.decode("utf-8"))
                 yield SensorWindow(**payload)
         finally:
             consumer.close()
-

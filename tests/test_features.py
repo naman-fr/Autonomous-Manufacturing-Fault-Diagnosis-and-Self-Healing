@@ -17,4 +17,3 @@ def test_extract_features_identifies_fault_frequency_band() -> None:
     assert features.rms > 0.10
     assert 200 <= features.dominant_frequency_hz <= 300
     assert features.rpm_mean is not None
-

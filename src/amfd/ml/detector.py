@@ -49,4 +49,3 @@ class HybridAnomalyDetector:
             + 0.15 * frequency_component,
             4,
         )
-

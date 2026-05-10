@@ -68,4 +68,3 @@ def _coerce_scalar(value: str) -> Any:
         return int(value)
     except ValueError:
         return value
-

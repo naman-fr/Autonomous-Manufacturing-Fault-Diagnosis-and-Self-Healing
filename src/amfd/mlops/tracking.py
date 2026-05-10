@@ -16,4 +16,3 @@ class ExperimentTracker:
         mlflow.set_experiment(self.experiment_name)
         with mlflow.start_run():
             mlflow.log_metrics(dict(metrics))
-

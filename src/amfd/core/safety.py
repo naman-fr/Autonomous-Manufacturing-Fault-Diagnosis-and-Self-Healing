@@ -7,9 +7,7 @@ class SafetyPolicy:
     def __init__(self, allowed_actions: tuple[str, ...]) -> None:
         self.allowed_actions = set(allowed_actions)
 
-    def validate(
-        self, actions: list[MaintenanceAction], severity: Severity
-    ) -> SafetyValidation:
+    def validate(self, actions: list[MaintenanceAction], severity: Severity) -> SafetyValidation:
         blocked: list[str] = []
         notes: list[str] = []
 
@@ -28,4 +26,3 @@ class SafetyPolicy:
             blocked_actions=sorted(set(blocked)),
             notes=notes,
         )
-

@@ -70,4 +70,3 @@ async def metrics() -> Response:
         ]
     )
     return Response(content=body, media_type="text/plain")
-

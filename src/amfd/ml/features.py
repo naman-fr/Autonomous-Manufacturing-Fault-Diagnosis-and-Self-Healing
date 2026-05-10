@@ -32,4 +32,3 @@ def extract_features(window: SensorWindow) -> FeatureVector:
         spectral_energy=spectral_energy,
         rpm_mean=rpm_mean,
     )
-

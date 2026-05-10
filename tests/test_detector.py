@@ -20,4 +20,3 @@ def test_detector_flags_high_energy_bearing_pattern() -> None:
     assert result.severity in {Severity.warning, Severity.critical}
     assert result.anomaly_score >= 0.50
     assert any("dominant_frequency" in item for item in result.evidence)
-

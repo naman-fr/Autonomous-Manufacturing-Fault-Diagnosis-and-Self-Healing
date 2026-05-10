@@ -21,4 +21,3 @@ def load_sensor_csv(
         rpm=rpm,
         sampling_rate_hz=sampling_rate_hz,
     )
-

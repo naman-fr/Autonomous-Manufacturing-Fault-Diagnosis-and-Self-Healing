@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from time import perf_counter
+from typing import Any, Literal
 from uuid import uuid4
 
 try:
@@ -8,13 +9,13 @@ try:
     from langgraph.graph import END, StateGraph
 except ImportError:  # pragma: no cover - exercised only when optional dependency is absent
     END = "__end__"
-    MemorySaver = None  # type: ignore[assignment]
-    StateGraph = None  # type: ignore[assignment]
+    MemorySaver = None  # type: ignore[misc,assignment]
+    StateGraph = None  # type: ignore[misc,assignment]
 
 from amfd.core.config import DiagnosisConfig
 from amfd.core.models import (
-    DiagnosisState,
     AgentMessage,
+    DiagnosisState,
     GuardrailFinding,
     HumanReview,
     IncidentReport,
@@ -67,7 +68,7 @@ class FaultDiagnosisWorkflow:
             result["report"].metrics = metrics
         return result
 
-    def _build_graph(self):
+    def _build_graph(self) -> Any | None:
         if StateGraph is None:
             return None
 
@@ -132,7 +133,9 @@ class FaultDiagnosisWorkflow:
                 AgentMessage(
                     sender="supervisor",
                     receiver="guardrails",
-                    content="Start incident triage with security checks, then route to specialists.",
+                    content=(
+                        "Start incident triage with security checks, then route to specialists."
+                    ),
                     message_type="handoff",
                 ),
             ],
@@ -198,7 +201,8 @@ class FaultDiagnosisWorkflow:
                     receiver="analyzer",
                     content=(
                         f"Detected {detection.severity.value} state with "
-                        f"score={detection.anomaly_score:.2f} confidence={detection.confidence:.2f}."
+                        f"score={detection.anomaly_score:.2f} "
+                        f"confidence={detection.confidence:.2f}."
                     ),
                     message_type="evidence",
                 ),
@@ -256,7 +260,10 @@ class FaultDiagnosisWorkflow:
             cause = RootCause(
                 label="rotor_imbalance_or_misalignment",
                 probability=0.74,
-                evidence=["Elevated vibration without strong bearing signature.", *detection.evidence],
+                evidence=[
+                    "Elevated vibration without strong bearing signature.",
+                    *detection.evidence,
+                ],
             )
 
         return {
@@ -299,21 +306,30 @@ class FaultDiagnosisWorkflow:
                 MaintenanceAction(
                     action="inspect_bearing",
                     priority="low",
-                    rationale="Continue routine inspection because no immediate fault was detected.",
+                    rationale=(
+                        "Continue routine inspection because no immediate fault was detected."
+                    ),
                 )
             ]
         elif label == "bearing_defect":
-            priority = "immediate" if severity is Severity.critical else "high"
+            priority: Literal["high", "immediate"] = (
+                "immediate" if severity is Severity.critical else "high"
+            )
             actions = [
                 MaintenanceAction(
                     action="reduce_load",
                     priority=priority,
-                    rationale="Lower load to reduce bearing stress while maintenance prepares inspection.",
+                    rationale=(
+                        "Lower load to reduce bearing stress while maintenance prepares inspection."
+                    ),
                 ),
                 MaintenanceAction(
                     action="inspect_bearing",
                     priority=priority,
-                    rationale="Inspect bearing race, lubrication, and housing for early defect progression.",
+                    rationale=(
+                        "Inspect bearing race, lubrication, and housing for early defect "
+                        "progression."
+                    ),
                 ),
             ]
             if severity is Severity.critical:
@@ -321,7 +337,9 @@ class FaultDiagnosisWorkflow:
                     MaintenanceAction(
                         action="schedule_shutdown",
                         priority="immediate",
-                        rationale="Critical vibration signature warrants controlled shutdown approval.",
+                        rationale=(
+                            "Critical vibration signature warrants controlled shutdown approval."
+                        ),
                     )
                 )
         elif label == "rpm_control_instability":

@@ -19,4 +19,3 @@ class SyntheticFaultAugmentor:
         raise NotImplementedError(
             "Connect this hook to a trained VAE-WGAN or policy-driven augmenter."
         )
-

@@ -105,7 +105,10 @@ def prescription_policy_tool(root_cause: str, severity: str) -> list[dict[str, A
 def safety_validator_tool(actions_json: str, severity: str) -> dict[str, Any]:
     """Validate maintenance actions against the plant safety policy."""
     actions = [MaintenanceAction(**item) for item in json.loads(actions_json)]
-    validation = SafetyPolicy(DiagnosisConfig().allowed_actions).validate(actions, Severity(severity))
+    validation = SafetyPolicy(DiagnosisConfig().allowed_actions).validate(
+        actions,
+        Severity(severity),
+    )
     return validation.model_dump(mode="json")
 
 
@@ -128,4 +131,3 @@ def build_tool_registry() -> list[Any]:
         safety_validator_tool,
         oee_impact_tool,
     ]
-

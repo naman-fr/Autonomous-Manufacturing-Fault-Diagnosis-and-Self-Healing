@@ -32,4 +32,3 @@ PROMPTS = {
     "prescriber": PRESCRIBER_PROMPT,
     "safety": SAFETY_PROMPT,
 }
-

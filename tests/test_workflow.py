@@ -30,4 +30,3 @@ def test_workflow_returns_valid_incident_report() -> None:
     assert report.actions
     assert report.validation.approved
     assert "report_finalized" in result["trace"]
-

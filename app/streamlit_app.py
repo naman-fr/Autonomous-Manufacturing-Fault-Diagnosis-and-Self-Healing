@@ -32,7 +32,11 @@ if uploaded is not None:
 elif use_demo:
     sensor_window = generate_bearing_window(machine_id=machine_id)
 else:
-    sensor_window = load_sensor_csv("examples/bearing_sample.csv", machine_id, config.sampling_rate_hz)
+    sensor_window = load_sensor_csv(
+        "examples/bearing_sample.csv",
+        machine_id,
+        config.sampling_rate_hz,
+    )
 
 result = workflow.run({"machine_id": machine_id, "sensor_window": sensor_window})
 report = result["report"]

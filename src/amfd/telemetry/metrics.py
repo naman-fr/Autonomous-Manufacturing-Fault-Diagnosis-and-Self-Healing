@@ -10,10 +10,9 @@ class Timer:
     started_at: float = 0.0
     elapsed_seconds: float = 0.0
 
-    def __enter__(self) -> "Timer":
+    def __enter__(self) -> Timer:
         self.started_at = perf_counter()
         return self
 
     def __exit__(self, *_: object) -> None:
         self.elapsed_seconds = perf_counter() - self.started_at
-
