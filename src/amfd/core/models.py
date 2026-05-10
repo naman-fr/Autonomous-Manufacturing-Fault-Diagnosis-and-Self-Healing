@@ -55,6 +55,41 @@ class SafetyValidation(BaseModel):
     notes: list[str] = Field(default_factory=list)
 
 
+class AgentMessage(BaseModel):
+    sender: str
+    receiver: str
+    content: str
+    message_type: Literal["handoff", "evidence", "decision", "review"] = "handoff"
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+
+class RetrievedEvidence(BaseModel):
+    source: str
+    text: str
+    bm25_score: float
+    rerank_score: float
+
+
+class HumanReview(BaseModel):
+    required: bool
+    reason: str
+    approved: bool | None = None
+    reviewer: str | None = None
+
+
+class GuardrailFinding(BaseModel):
+    category: str
+    action: Literal["allow", "redact", "block"]
+    detail: str
+
+
+class RuntimeMetrics(BaseModel):
+    latency_ms: float = 0.0
+    estimated_oee_gain_percent: float = 0.0
+    tokens_used: int = 0
+    tool_calls: int = 0
+
+
 class IncidentReport(BaseModel):
     incident_id: str
     machine_id: str
@@ -65,6 +100,10 @@ class IncidentReport(BaseModel):
     actions: list[MaintenanceAction]
     validation: SafetyValidation
     context: list[str] = Field(default_factory=list)
+    rag_evidence: list[RetrievedEvidence] = Field(default_factory=list)
+    guardrails: list[GuardrailFinding] = Field(default_factory=list)
+    metrics: RuntimeMetrics = Field(default_factory=RuntimeMetrics)
+    agent_messages: list[AgentMessage] = Field(default_factory=list)
 
 
 class DiagnosisState(TypedDict, total=False):
@@ -77,8 +116,12 @@ class DiagnosisState(TypedDict, total=False):
     actions: list[MaintenanceAction]
     validation: SafetyValidation
     context: list[str]
+    rag_evidence: list[RetrievedEvidence]
+    guardrails: list[GuardrailFinding]
+    human_review: HumanReview
+    agent_messages: list[AgentMessage]
+    metrics: RuntimeMetrics
     refinement_loops: int
     report: IncidentReport
     trace: list[str]
     metadata: dict[str, Any]
-
