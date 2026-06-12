@@ -2,10 +2,13 @@ from __future__ import annotations
 
 from typing import Any
 
+prometheus: Any = None
 try:
-    import prometheus_client as prometheus
+    import prometheus_client as _prometheus
+
+    prometheus = _prometheus
 except ImportError:  # pragma: no cover - optional production dependency
-    prometheus = None  # type: ignore[assignment]
+    prometheus = None
 
 
 class PrometheusMetrics:
