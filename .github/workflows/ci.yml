@@ -46,7 +46,7 @@ jobs:
         run: python -m ruff check .
 
       - name: Type check
-        run: python -m mypy src tests
+        run: python -m mypy src tests scripts/validate_manifests.py
 
       - name: Unit tests
         run: python -m pytest --cov=amfd --cov-report=term-missing --cov-report=xml
@@ -75,13 +75,13 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       - name: Build image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           push: false
@@ -96,10 +96,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up kubectl
-        uses: azure/setup-kubectl@v5
+        uses: actions/checkout@v6
 
       - name: Validate manifests client-side
-        run: kubectl apply --dry-run=client --validate=false -f k8s/deployment.yaml
+        run: python scripts/validate_manifests.py
