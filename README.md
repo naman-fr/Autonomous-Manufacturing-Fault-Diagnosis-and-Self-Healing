@@ -1,3 +1,10 @@
+---
+title: Autonomous Manufacturing Fault Diagnosis and Self-Healing
+sdk: gradio
+sdk_version: 6.14.0
+app_file: app.py
+---
+
 # Autonomous Manufacturing Fault Diagnosis and Self-Healing
 
 Production-grade reference implementation for a LangGraph-powered multi-agent system that diagnoses rotating-machinery faults from vibration/RPM signals and emits safety-gated self-healing maintenance plans.
