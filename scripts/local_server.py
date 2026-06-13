@@ -2,14 +2,19 @@ from __future__ import annotations
 
 import json
 import mimetypes
+import sys
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
-from amfd.backend.service import DiagnosisRequest, DiagnosisService
-
 ROOT = Path(__file__).resolve().parents[1]
+SRC = ROOT / "src"
+if str(SRC) not in sys.path:
+    sys.path.insert(0, str(SRC))
+
+from amfd.backend.service import DiagnosisRequest, DiagnosisService  # noqa: E402
+
 WEB_ROOT = ROOT / "web"
 SERVICE = DiagnosisService()
 

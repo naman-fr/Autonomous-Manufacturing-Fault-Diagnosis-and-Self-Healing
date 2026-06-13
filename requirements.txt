@@ -1,5 +1,6 @@
 langgraph>=0.3.0
 langchain-core>=0.3.28
+gradio>=6.14.0
 fastapi>=0.115
 uvicorn[standard]>=0.30
 python-multipart>=0.0.9

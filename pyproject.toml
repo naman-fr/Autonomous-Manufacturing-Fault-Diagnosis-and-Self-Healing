@@ -27,6 +27,7 @@ backend = [
     "python-multipart>=0.0.9",
 ]
 app = [
+    "gradio>=6.14.0",
     "plotly>=5.22",
     "streamlit>=1.36",
 ]

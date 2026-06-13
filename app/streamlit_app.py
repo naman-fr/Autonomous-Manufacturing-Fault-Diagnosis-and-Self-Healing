@@ -1,16 +1,22 @@
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 
 import pandas as pd
 import plotly.express as px
 import streamlit as st
 
-from amfd.agents.workflow import FaultDiagnosisWorkflow
-from amfd.core.config import load_config
-from amfd.data.ingestion import load_sensor_csv
-from amfd.data.synthetic import generate_bearing_window
+ROOT = Path(__file__).resolve().parents[1]
+SRC = ROOT / "src"
+if str(SRC) not in sys.path:
+    sys.path.insert(0, str(SRC))
+
+from amfd.agents.workflow import FaultDiagnosisWorkflow  # noqa: E402
+from amfd.core.config import load_config  # noqa: E402
+from amfd.data.ingestion import load_sensor_csv  # noqa: E402
+from amfd.data.synthetic import generate_bearing_window  # noqa: E402
 
 st.set_page_config(page_title="Manufacturing Fault Diagnosis", layout="wide")
 

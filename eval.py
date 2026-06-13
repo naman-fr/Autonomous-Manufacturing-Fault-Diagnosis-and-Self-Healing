@@ -1,12 +1,19 @@
 from __future__ import annotations
 
 import json
+import sys
 from dataclasses import dataclass
+from pathlib import Path
 from time import perf_counter
 
-from amfd.agents.workflow import FaultDiagnosisWorkflow
-from amfd.core.config import DiagnosisConfig
-from amfd.data.synthetic import generate_bearing_window
+ROOT = Path(__file__).resolve().parent
+SRC = ROOT / "src"
+if str(SRC) not in sys.path:
+    sys.path.insert(0, str(SRC))
+
+from amfd.agents.workflow import FaultDiagnosisWorkflow  # noqa: E402
+from amfd.core.config import DiagnosisConfig  # noqa: E402
+from amfd.data.synthetic import generate_bearing_window  # noqa: E402
 
 
 @dataclass(frozen=True)

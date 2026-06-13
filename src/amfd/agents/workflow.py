@@ -4,16 +4,22 @@ from time import perf_counter
 from typing import Any, Literal
 from uuid import uuid4
 
-try:
-    from langgraph.checkpoint.memory import MemorySaver
-    from langgraph.graph import END, StateGraph
-except ImportError:  # pragma: no cover - exercised only when optional dependency is absent
-    END = "__end__"
-    MemorySaver = None  # type: ignore[misc,assignment]
-    StateGraph = None  # type: ignore[misc,assignment]
+MemorySaver: Any = None
+StateGraph: Any = None
+END = "__end__"
 
-from amfd.core.config import DiagnosisConfig
-from amfd.core.models import (
+try:
+    from langgraph.checkpoint.memory import MemorySaver as _MemorySaver  # noqa: E402, I001
+    from langgraph.graph import END as _END, StateGraph as _StateGraph  # noqa: E402, I001
+except ImportError:  # pragma: no cover - optional dependency path
+    pass
+else:
+    MemorySaver = _MemorySaver
+    StateGraph = _StateGraph
+    END = _END
+
+from amfd.core.config import DiagnosisConfig  # noqa: E402
+from amfd.core.models import (  # noqa: E402
     AgentMessage,
     DiagnosisState,
     GuardrailFinding,
@@ -24,11 +30,14 @@ from amfd.core.models import (
     RuntimeMetrics,
     Severity,
 )
-from amfd.core.safety import SafetyPolicy
-from amfd.ml.detector import HybridAnomalyDetector
-from amfd.ml.features import extract_features
-from amfd.rag.hybrid import HybridMaintenanceRetriever
-from amfd.security.guardrails import GuardrailEngine
+from amfd.core.safety import SafetyPolicy  # noqa: E402
+from amfd.ml.detector import HybridAnomalyDetector  # noqa: E402
+from amfd.ml.features import extract_features  # noqa: E402
+from amfd.rag.hybrid import HybridMaintenanceRetriever  # noqa: E402
+from amfd.security.guardrails import GuardrailEngine  # noqa: E402
+
+_langgraph_checkpoint_memory: Any | None
+_langgraph_graph: Any | None
 
 
 class FaultDiagnosisWorkflow:
