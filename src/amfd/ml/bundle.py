@@ -140,8 +140,7 @@ class SignalModelBundle:
                     seed=seed + index,
                     fault_frequency_hz=fault_frequency,
                     fault_intensity=intensity,
-                    rpm_nominal=1800.0
-                    + (40.0 if root_cause == "rpm_control_instability" else 0.0),
+                    rpm_nominal=1800.0 + (40.0 if root_cause == "rpm_control_instability" else 0.0),
                 )
                 features = extract_features(window)
                 rows.append(cls._feature_row(features))
@@ -252,10 +251,7 @@ def _feature_importances(pipeline: Pipeline) -> dict[str, float]:
     importances = getattr(model, "feature_importances_", None)
     if importances is None:
         return {name: 0.0 for name in FEATURE_COLUMNS}
-    return {
-        FEATURE_COLUMNS[index]: float(score)
-        for index, score in enumerate(importances)
-    }
+    return {FEATURE_COLUMNS[index]: float(score) for index, score in enumerate(importances)}
 
 
 def _rand_uniform(low: float, high: float, seed: int) -> float:

@@ -50,9 +50,7 @@ def generate_machine_window(
             rpm_sample = rpm_nominal + rng.gauss(0, 2.5)
         elif root_cause == "rotor_imbalance_or_misalignment":
             imbalance = severity_scale * math.sin(2 * math.pi * running_speed_hz * t)
-            coupling = 0.5 * severity_scale * math.sin(
-                2 * math.pi * running_speed_hz * 2 * t + 0.7
-            )
+            coupling = 0.5 * severity_scale * math.sin(2 * math.pi * running_speed_hz * 2 * t + 0.7)
             vibration_sample = base + imbalance + coupling + noise
             rpm_sample = rpm_nominal + rng.gauss(0, 2.0)
         elif root_cause == "rpm_control_instability":
