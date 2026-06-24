@@ -2,7 +2,14 @@ sampling_rate_hz: 12000
 window_seconds: 1.0
 anomaly_threshold: 0.72
 high_risk_threshold: 0.88
+review_probability_threshold: 0.72
 max_refinement_loops: 2
+synthetic_training_cases: 512
+artifact_dir: models
+policy_path: configs/actions.json
+knowledge_base_path: configs/knowledge_base.json
+llm_provider: auto
+llm_model: ""
 allowed_actions:
   - inspect_bearing
   - reduce_load
@@ -11,4 +18,3 @@ allowed_actions:
   - align_coupling
   - lubricate_bearing
   - recalibrate_rpm
-

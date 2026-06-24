@@ -68,7 +68,7 @@ class DiagnosisService:
     def demo(self, machine_id: str = "PUMP-101") -> DiagnosisResponse:
         sensor_window = generate_bearing_window(
             machine_id=machine_id,
-            sampling_rate_hz=2_000,
+            sampling_rate_hz=self.config.sampling_rate_hz,
             seconds=1.0,
             fault_frequency_hz=250,
             fault_intensity=0.50,

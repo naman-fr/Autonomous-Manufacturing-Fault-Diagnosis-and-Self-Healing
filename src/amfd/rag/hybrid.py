@@ -1,44 +1,75 @@
 from __future__ import annotations
 
+import json
 import math
 import re
 from collections import Counter
+from pathlib import Path
 
+from amfd.core.config import DiagnosisConfig
 from amfd.core.models import FeatureVector, RetrievedEvidence
 
 TOKEN_RE = re.compile(r"[a-zA-Z0-9_]+")
 
+DEFAULT_KNOWLEDGE_BASE = {
+    "cwru_bearing_notes": (
+        "CWRU bearing experiments include normal, inner race, outer race, and ball faults "
+        "under varied load and speed. Bearing defects create impulsive vibration and spectral "
+        "energy in the fault-band neighborhood."
+    ),
+    "pu_bearing_notes": (
+        "Paderborn bearing data includes vibration, motor current, speed, torque, radial load, "
+        "and temperature for healthy and damaged bearings."
+    ),
+    "maintenance_sop": (
+        "For high vibration, reduce load, inspect bearing lubrication and race damage, check "
+        "coupling alignment, and schedule controlled shutdown when critical."
+    ),
+    "control_loop_sop": (
+        "RPM drift with vibration can indicate drive instability, load fluctuation, or "
+        "control-loop calibration issues."
+    ),
+}
+
 
 class HybridMaintenanceRetriever:
-    """BM25-style lexical retrieval with a lightweight late-interaction reranker."""
+    """Hybrid lexical + rerank retriever over the project knowledge base."""
 
     def __init__(self, documents: dict[str, str] | None = None) -> None:
-        self.documents = documents or {
-            "cwru_bearing_notes": (
-                "CWRU bearing experiments include normal, inner race, outer race, and ball "
-                "faults under varied load and speed. Bearing defects create impulsive vibration "
-                "and frequency components above the running-speed band."
-            ),
-            "pu_bearing_notes": (
-                "Paderborn bearing data includes vibration, motor current, speed, torque, radial "
-                "load, and temperature for healthy and damaged bearings."
-            ),
-            "maintenance_sop": (
-                "For high vibration, reduce load, inspect bearing lubrication and race damage, "
-                "check coupling alignment, and schedule controlled shutdown when critical."
-            ),
-            "control_loop_sop": (
-                "RPM drift with vibration can indicate drive instability, load fluctuation, or "
-                "control-loop calibration issues."
-            ),
-        }
+        self.documents = documents or DEFAULT_KNOWLEDGE_BASE
         self._tokenized = {key: self._tokens(text) for key, text in self.documents.items()}
-        self._avg_len = sum(len(tokens) for tokens in self._tokenized.values()) / len(
-            self._tokenized
-        )
+        total_tokens = sum(len(tokens) for tokens in self._tokenized.values())
+        self._avg_len = total_tokens / max(1, len(self._tokenized))
 
-    def retrieve(self, features: FeatureVector, limit: int = 3) -> list[RetrievedEvidence]:
-        query = self._query_from_features(features)
+    @classmethod
+    def load(cls, path: str | Path | None = None) -> HybridMaintenanceRetriever:
+        if path is None:
+            return cls()
+        kb_path = Path(path)
+        if not kb_path.exists():
+            return cls()
+        try:
+            raw = json.loads(kb_path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            return cls()
+        documents = {
+            str(key): str(value)
+            for key, value in raw.items()
+            if isinstance(key, str) and isinstance(value, str) and value.strip()
+        }
+        return cls(documents or None)
+
+    @classmethod
+    def from_config(cls, config: DiagnosisConfig) -> HybridMaintenanceRetriever:
+        return cls.load(config.knowledge_base_path)
+
+    def retrieve(
+        self,
+        features: FeatureVector,
+        limit: int = 3,
+        focus: str | None = None,
+    ) -> list[RetrievedEvidence]:
+        query = self._query_from_features(features, focus=focus)
         query_tokens = self._tokens(query)
         candidates: list[RetrievedEvidence] = []
         for source, text in self.documents.items():
@@ -79,8 +110,10 @@ class HybridMaintenanceRetriever:
         return min(1.0, overlap + phrase_boost)
 
     @staticmethod
-    def _query_from_features(features: FeatureVector) -> str:
+    def _query_from_features(features: FeatureVector, focus: str | None = None) -> str:
         terms = ["vibration", "fault", "maintenance"]
+        if focus:
+            terms.extend(focus.replace("_", " ").split())
         if features.crest_factor >= 3:
             terms.extend(["bearing", "impulsive", "race"])
         if features.rpm_mean and features.rpm_mean < 1750:

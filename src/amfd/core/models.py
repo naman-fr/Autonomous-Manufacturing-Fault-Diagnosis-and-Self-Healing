@@ -112,6 +112,7 @@ class DiagnosisState(TypedDict, total=False):
     sensor_window: SensorWindow
     features: FeatureVector
     detection: DetectionResult
+    model_diagnosis: Any
     root_cause: RootCause
     actions: list[MaintenanceAction]
     validation: SafetyValidation

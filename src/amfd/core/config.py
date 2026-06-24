@@ -11,7 +11,14 @@ class DiagnosisConfig(BaseModel):
     window_seconds: float = Field(default=1.0, gt=0)
     anomaly_threshold: float = Field(default=0.72, ge=0, le=1)
     high_risk_threshold: float = Field(default=0.88, ge=0, le=1)
+    review_probability_threshold: float = Field(default=0.72, ge=0, le=1)
     max_refinement_loops: int = Field(default=2, ge=0, le=10)
+    synthetic_training_cases: int = Field(default=512, ge=32, le=10_000)
+    artifact_dir: str = "models"
+    policy_path: str = "configs/actions.json"
+    knowledge_base_path: str = "configs/knowledge_base.json"
+    llm_provider: str = "auto"
+    llm_model: str = ""
     allowed_actions: tuple[str, ...] = (
         "inspect_bearing",
         "reduce_load",

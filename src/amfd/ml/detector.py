@@ -1,51 +1,74 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
+from pathlib import Path
+
+from amfd.core.config import DiagnosisConfig
 from amfd.core.models import DetectionResult, FeatureVector, Severity
+from amfd.ml.bundle import ModelDiagnosis, SignalModelBundle
 
 
+@dataclass(slots=True)
 class HybridAnomalyDetector:
-    """Explainable baseline detector that can later be swapped for a trained model."""
+    """Compatibility wrapper around the trained signal model bundle.
 
-    def __init__(self, anomaly_threshold: float, high_risk_threshold: float) -> None:
-        self.anomaly_threshold = anomaly_threshold
-        self.high_risk_threshold = high_risk_threshold
+    The public API stays stable for the rest of the application while the
+    implementation shifts from hand-tuned thresholds to a persisted model bundle.
+    """
 
-    def predict(self, features: FeatureVector) -> DetectionResult:
-        score = self._score(features)
-        if score >= self.high_risk_threshold:
-            severity = Severity.critical
-        elif score >= self.anomaly_threshold:
-            severity = Severity.warning
-        else:
-            severity = Severity.normal
+    anomaly_threshold: float | None = None
+    high_risk_threshold: float | None = None
+    config: DiagnosisConfig | None = None
+    artifact_dir: str | Path | None = None
+    bundle: SignalModelBundle | None = None
 
-        evidence = [
-            f"RMS={features.rms:.4f}",
-            f"crest_factor={features.crest_factor:.2f}",
-            f"dominant_frequency={features.dominant_frequency_hz:.1f}Hz",
-            f"spectral_energy={features.spectral_energy:.4f}",
-        ]
-        if features.rpm_mean is not None:
-            evidence.append(f"rpm_mean={features.rpm_mean:.0f}")
-
-        confidence = min(0.99, 0.55 + abs(score - self.anomaly_threshold))
-        return DetectionResult(
-            severity=severity,
-            confidence=confidence,
-            anomaly_score=score,
-            evidence=evidence,
+    def __post_init__(self) -> None:
+        config = self.config or DiagnosisConfig()
+        self.config = config
+        self.bundle = SignalModelBundle.load_or_train(
+            config,
+            artifact_dir=self.artifact_dir or config.artifact_dir,
         )
 
-    @staticmethod
-    def _score(features: FeatureVector) -> float:
-        rms_component = min(features.rms / 0.30, 1.0)
-        crest_component = min(max((features.crest_factor - 2.5) / 5.0, 0), 1.0)
-        energy_component = min(features.spectral_energy / 25.0, 1.0)
-        frequency_component = 1.0 if 120 <= features.dominant_frequency_hz <= 800 else 0.25
-        return round(
-            0.35 * rms_component
-            + 0.25 * crest_component
-            + 0.25 * energy_component
-            + 0.15 * frequency_component,
-            4,
+    def diagnose(self, features: FeatureVector) -> ModelDiagnosis:
+        assert self.bundle is not None
+        diagnosis = self.bundle.diagnose(features)
+        return self._apply_thresholds(diagnosis)
+
+    def predict(self, features: FeatureVector) -> DetectionResult:
+        return self.diagnose(features).detection
+
+    def _apply_thresholds(self, diagnosis: ModelDiagnosis) -> ModelDiagnosis:
+        assert self.config is not None
+        detection = diagnosis.detection
+        anomaly_threshold = (
+            self.anomaly_threshold
+            if self.anomaly_threshold is not None
+            else self.config.anomaly_threshold
+        )
+        high_risk_threshold = (
+            self.high_risk_threshold
+            if self.high_risk_threshold is not None
+            else self.config.high_risk_threshold
+        )
+
+        anomaly_score = detection.anomaly_score
+        severity = detection.severity
+        if anomaly_score < anomaly_threshold:
+            severity = Severity.normal
+        elif anomaly_score >= high_risk_threshold:
+            severity = Severity.critical
+        elif severity is Severity.normal:
+            severity = Severity.warning
+
+        if severity == detection.severity:
+            return diagnosis
+
+        adjusted_detection = detection.model_copy(update={"severity": severity})
+        return ModelDiagnosis(
+            detection=adjusted_detection,
+            root_cause=diagnosis.root_cause,
+            evidence=diagnosis.evidence,
+            severity_probabilities=diagnosis.severity_probabilities,
+            root_cause_probabilities=diagnosis.root_cause_probabilities,
         )

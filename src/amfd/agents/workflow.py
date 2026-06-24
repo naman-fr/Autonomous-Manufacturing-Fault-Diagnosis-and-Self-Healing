@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from time import perf_counter
-from typing import Any, Literal
+from typing import Any
 from uuid import uuid4
 
 MemorySaver: Any = None
@@ -18,6 +18,7 @@ else:
     StateGraph = _StateGraph
     END = _END
 
+from amfd.core.catalog import ActionCatalog  # noqa: E402
 from amfd.core.config import DiagnosisConfig  # noqa: E402
 from amfd.core.models import (  # noqa: E402
     AgentMessage,
@@ -25,10 +26,7 @@ from amfd.core.models import (  # noqa: E402
     GuardrailFinding,
     HumanReview,
     IncidentReport,
-    MaintenanceAction,
-    RootCause,
     RuntimeMetrics,
-    Severity,
 )
 from amfd.core.safety import SafetyPolicy  # noqa: E402
 from amfd.ml.detector import HybridAnomalyDetector  # noqa: E402
@@ -46,8 +44,10 @@ class FaultDiagnosisWorkflow:
         self.detector = HybridAnomalyDetector(
             anomaly_threshold=self.config.anomaly_threshold,
             high_risk_threshold=self.config.high_risk_threshold,
+            config=self.config,
         )
-        self.retriever = HybridMaintenanceRetriever()
+        self.retriever = HybridMaintenanceRetriever.from_config(self.config)
+        self.action_catalog = ActionCatalog.load(self.config.policy_path)
         self.safety_policy = SafetyPolicy(self.config.allowed_actions)
         self.guardrails = GuardrailEngine()
         self._graph = self._build_graph()
@@ -178,7 +178,6 @@ class FaultDiagnosisWorkflow:
 
     def _data_aug(self, state: DiagnosisState) -> DiagnosisState:
         features = extract_features(state["sensor_window"])
-        synthetic_needed = features.rms < 0.02 and state.get("refinement_loops", 0) == 0
         return {
             "features": features,
             "agent_messages": [
@@ -187,8 +186,8 @@ class FaultDiagnosisWorkflow:
                     sender="data_aug",
                     receiver="detector",
                     content=(
-                        "Feature window prepared; VAE-WGAN-GP augmentation not injected into "
-                        f"production evidence. synthetic_needed={synthetic_needed}"
+                        "Feature window prepared; augmentation hooks remain isolated from "
+                        "production evidence and only synthetic training data is used offline."
                     ),
                     message_type="evidence",
                 ),
@@ -197,11 +196,13 @@ class FaultDiagnosisWorkflow:
         }
 
     def _detect(self, state: DiagnosisState) -> DiagnosisState:
-        detection = self.detector.predict(state["features"])
+        model_diagnosis = self.detector.diagnose(state["features"])
+        detection = model_diagnosis.detection
         metrics = state.get("metrics", RuntimeMetrics())
         metrics.tool_calls += 2
         return {
             "detection": detection,
+            "model_diagnosis": model_diagnosis,
             "metrics": metrics,
             "agent_messages": [
                 *state.get("agent_messages", []),
@@ -222,7 +223,10 @@ class FaultDiagnosisWorkflow:
     def _route_after_detection(self, state: DiagnosisState) -> str:
         detection = state["detection"]
         loops = state.get("refinement_loops", 0)
-        if detection.confidence < 0.90 and loops < self.config.max_refinement_loops:
+        if (
+            detection.confidence < self.config.review_probability_threshold
+            and loops < self.config.max_refinement_loops
+        ):
             return "refine"
         return "analyzer"
 
@@ -242,38 +246,10 @@ class FaultDiagnosisWorkflow:
         }
 
     def _diagnose(self, state: DiagnosisState) -> DiagnosisState:
-        features = state["features"]
-        detection = state["detection"]
-        if detection.severity is Severity.normal:
-            cause = RootCause(
-                label="normal_operation",
-                probability=0.86,
-                evidence=["Anomaly score stayed below configured warning threshold."],
-            )
-        elif features.crest_factor >= 3.0 or 120 <= features.dominant_frequency_hz <= 800:
-            cause = RootCause(
-                label="bearing_defect",
-                probability=min(0.96, detection.confidence + 0.05),
-                evidence=[
-                    "Impulsive vibration and mid-frequency spectral content match bearing wear.",
-                    *detection.evidence,
-                ],
-            )
-        elif features.rpm_mean and features.rpm_mean < 1750:
-            cause = RootCause(
-                label="rpm_control_instability",
-                probability=0.78,
-                evidence=["RPM mean is below operating baseline.", *detection.evidence],
-            )
-        else:
-            cause = RootCause(
-                label="rotor_imbalance_or_misalignment",
-                probability=0.74,
-                evidence=[
-                    "Elevated vibration without strong bearing signature.",
-                    *detection.evidence,
-                ],
-            )
+        model_diagnosis = state.get("model_diagnosis")
+        if model_diagnosis is None:
+            model_diagnosis = self.detector.diagnose(state["features"])
+        cause = model_diagnosis.root_cause
 
         return {
             "root_cause": cause,
@@ -290,7 +266,7 @@ class FaultDiagnosisWorkflow:
         }
 
     def _retrieve_context(self, state: DiagnosisState) -> DiagnosisState:
-        evidence = self.retriever.retrieve(state["features"])
+        evidence = self.retriever.retrieve(state["features"], focus=state["root_cause"].label)
         return {
             "rag_evidence": evidence,
             "context": [item.text for item in evidence],
@@ -309,69 +285,7 @@ class FaultDiagnosisWorkflow:
     def _prescribe(self, state: DiagnosisState) -> DiagnosisState:
         severity = state["detection"].severity
         label = state["root_cause"].label
-
-        if label == "normal_operation":
-            actions = [
-                MaintenanceAction(
-                    action="inspect_bearing",
-                    priority="low",
-                    rationale=(
-                        "Continue routine inspection because no immediate fault was detected."
-                    ),
-                )
-            ]
-        elif label == "bearing_defect":
-            priority: Literal["high", "immediate"] = (
-                "immediate" if severity is Severity.critical else "high"
-            )
-            actions = [
-                MaintenanceAction(
-                    action="reduce_load",
-                    priority=priority,
-                    rationale=(
-                        "Lower load to reduce bearing stress while maintenance prepares inspection."
-                    ),
-                ),
-                MaintenanceAction(
-                    action="inspect_bearing",
-                    priority=priority,
-                    rationale=(
-                        "Inspect bearing race, lubrication, and housing for early defect "
-                        "progression."
-                    ),
-                ),
-            ]
-            if severity is Severity.critical:
-                actions.append(
-                    MaintenanceAction(
-                        action="schedule_shutdown",
-                        priority="immediate",
-                        rationale=(
-                            "Critical vibration signature warrants controlled shutdown approval."
-                        ),
-                    )
-                )
-        elif label == "rpm_control_instability":
-            actions = [
-                MaintenanceAction(
-                    action="recalibrate_rpm",
-                    priority="medium",
-                    rationale="RPM drift suggests control-loop or drive calibration issue.",
-                )
-            ]
-        else:
-            actions = [
-                MaintenanceAction(
-                    action="rebalance_rotor",
-                    priority="high",
-                    rationale="Vibration pattern is consistent with imbalance.",
-                ),
-                MaintenanceAction(
-                    action="align_coupling",
-                    priority="medium",
-                    rationale="Coupling alignment should be verified during maintenance window.",
-                ),
-            ]
+        actions = self.action_catalog.build(label, severity)
 
         return {
             "actions": actions,
@@ -414,7 +328,11 @@ class FaultDiagnosisWorkflow:
 
     def _route_after_validation(self, state: DiagnosisState) -> str:
         metadata = state.get("metadata", {})
-        if metadata.get("force_human_review") or not state["validation"].approved:
+        if (
+            metadata.get("force_human_review")
+            or not state["validation"].approved
+            or state["detection"].confidence < self.config.review_probability_threshold
+        ):
             return "human_review"
         return "report"
 

@@ -1,0 +1,60 @@
+{
+  "normal_operation": [
+    {
+      "action": "inspect_bearing",
+      "priority": "low",
+      "rationale": "Continue routine inspection and trend monitoring because the signal is within the normal operating envelope.",
+      "requires_human_approval": true
+    }
+  ],
+  "bearing_defect": [
+    {
+      "action": "reduce_load",
+      "priority": "high",
+      "rationale": "Reduce bearing stress while maintenance prepares an inspection and lubrication check.",
+      "requires_human_approval": true
+    },
+    {
+      "action": "inspect_bearing",
+      "priority": "high",
+      "rationale": "Inspect the bearing race, cage, lubrication, and housing for progression or pitting.",
+      "requires_human_approval": true
+    },
+    {
+      "action": "schedule_shutdown",
+      "priority": "immediate",
+      "rationale": "Critical bearing signatures warrant controlled shutdown approval before damage escalates.",
+      "requires_human_approval": true
+    }
+  ],
+  "rotor_imbalance_or_misalignment": [
+    {
+      "action": "rebalance_rotor",
+      "priority": "high",
+      "rationale": "Vibration pattern is consistent with imbalance; balance correction should be scheduled.",
+      "requires_human_approval": true
+    },
+    {
+      "action": "align_coupling",
+      "priority": "medium",
+      "rationale": "Coupling and shaft alignment should be verified during the maintenance window.",
+      "requires_human_approval": true
+    }
+  ],
+  "rpm_control_instability": [
+    {
+      "action": "recalibrate_rpm",
+      "priority": "medium",
+      "rationale": "RPM drift suggests drive or control-loop calibration issues.",
+      "requires_human_approval": true
+    }
+  ],
+  "fallback": [
+    {
+      "action": "inspect_bearing",
+      "priority": "medium",
+      "rationale": "Use a generic inspection plan when the model confidence is insufficient for a narrower prescription.",
+      "requires_human_approval": true
+    }
+  ]
+}

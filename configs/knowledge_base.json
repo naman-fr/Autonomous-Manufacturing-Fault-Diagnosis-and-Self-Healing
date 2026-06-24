@@ -1,0 +1,6 @@
+{
+  "cwru_bearing_notes": "CWRU bearing experiments include normal, inner race, outer race, and ball faults under varied load and speed. Bearing defects create impulsive vibration and frequency components above the running-speed band.",
+  "pu_bearing_notes": "Paderborn bearing data includes vibration, motor current, speed, torque, radial load, and temperature for healthy and damaged bearings.",
+  "maintenance_sop": "For high vibration, reduce load, inspect bearing lubrication and race damage, check coupling alignment, and schedule controlled shutdown when critical.",
+  "control_loop_sop": "RPM drift with vibration can indicate drive instability, load fluctuation, or control-loop calibration issues."
+}

@@ -12,6 +12,7 @@ authors = [{ name = "Naman" }]
 dependencies = [
     "langgraph>=0.3.0",
     "langchain-core>=0.3.28",
+    "joblib>=1.4",
     "numpy>=1.26",
     "pandas>=2.2",
     "pydantic>=2.8",

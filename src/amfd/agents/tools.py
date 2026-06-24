@@ -6,9 +6,11 @@ from typing import Any
 import numpy as np
 from langchain_core.tools import tool
 
+from amfd.core.catalog import ActionCatalog
 from amfd.core.config import DiagnosisConfig
 from amfd.core.models import FeatureVector, MaintenanceAction, Severity
 from amfd.core.safety import SafetyPolicy
+from amfd.ml.bundle import SignalModelBundle
 from amfd.ml.detector import HybridAnomalyDetector
 
 
@@ -31,74 +33,48 @@ def fft_signature_tool(vibration: list[float], sampling_rate_hz: int) -> dict[st
 def anomaly_detector_tool(features: dict[str, float]) -> dict[str, Any]:
     """Score a feature vector with the explainable baseline anomaly detector."""
     config = DiagnosisConfig()
-    detector = HybridAnomalyDetector(config.anomaly_threshold, config.high_risk_threshold)
+    detector = HybridAnomalyDetector(
+        anomaly_threshold=config.anomaly_threshold,
+        high_risk_threshold=config.high_risk_threshold,
+        config=config,
+    )
     result = detector.predict(FeatureVector(**features))
     return result.model_dump(mode="json")
 
 
 @tool
 def causal_inference_tool(features: dict[str, float], anomaly_score: float) -> list[dict[str, Any]]:
-    """Rank likely rotating-machinery root causes from signal evidence."""
-    crest = features.get("crest_factor", 0.0)
-    frequency = features.get("dominant_frequency_hz", 0.0)
-    rpm = features.get("rpm_mean")
-    candidates = [
-        {
-            "label": "bearing_defect",
-            "score": min(0.98, 0.35 + anomaly_score + (0.15 if crest >= 3 else 0)),
-            "why": "impulsive vibration or bearing-band frequency content",
-        },
-        {
-            "label": "rotor_imbalance",
-            "score": 0.50 if frequency < 120 else 0.28,
-            "why": "low-frequency 1x running-speed dominated vibration",
-        },
-        {
-            "label": "rpm_control_instability",
-            "score": 0.70 if rpm is not None and rpm < 1750 else 0.22,
-            "why": "RPM drift away from nominal band",
-        },
-    ]
-    return sorted(candidates, key=lambda item: item["score"], reverse=True)
+    """Rank likely rotating-machinery root causes from model-backed signal evidence."""
+    config = DiagnosisConfig()
+    bundle = SignalModelBundle.load_or_train(config)
+    diagnosis = bundle.diagnose(FeatureVector(**features))
+    candidates: list[dict[str, Any]] = []
+    for label, probability in sorted(
+        diagnosis.root_cause_probabilities.items(),
+        key=lambda item: item[1],
+        reverse=True,
+    ):
+        candidates.append(
+            {
+                "label": label,
+                "score": round(float(probability), 4),
+                "why": "Model-backed posterior from trained rotating-machine bundle.",
+            }
+        )
+    if candidates:
+        candidates[0]["why"] = (
+            f"Highest posterior with anomaly score {anomaly_score:.2f} "
+            f"and root-cause evidence from the bundle."
+        )
+    return candidates
 
 
 @tool
 def prescription_policy_tool(root_cause: str, severity: str) -> list[dict[str, Any]]:
     """Generate safety-gated maintenance prescriptions for the inferred root cause."""
-    sev = Severity(severity)
-    if root_cause == "bearing_defect":
-        priority = "immediate" if sev is Severity.critical else "high"
-        return [
-            {
-                "action": "reduce_load",
-                "priority": priority,
-                "rationale": "Reduce bearing stress while maintenance prepares inspection.",
-                "requires_human_approval": True,
-            },
-            {
-                "action": "inspect_bearing",
-                "priority": priority,
-                "rationale": "Inspect race, cage, lubrication, and housing.",
-                "requires_human_approval": True,
-            },
-        ]
-    if root_cause == "rpm_control_instability":
-        return [
-            {
-                "action": "recalibrate_rpm",
-                "priority": "medium",
-                "rationale": "RPM drift suggests drive or control-loop calibration issue.",
-                "requires_human_approval": True,
-            }
-        ]
-    return [
-        {
-            "action": "rebalance_rotor",
-            "priority": "high",
-            "rationale": "Vibration pattern is consistent with imbalance.",
-            "requires_human_approval": True,
-        }
-    ]
+    catalog = ActionCatalog.load(DiagnosisConfig().policy_path)
+    actions = catalog.build(root_cause, Severity(severity))
+    return [action.model_dump(mode="json") for action in actions]
 
 
 @tool

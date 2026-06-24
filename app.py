@@ -398,9 +398,9 @@ def _render_banner(
           <div class="amfd-eyebrow">Industrial diagnosis console</div>
           <h2>{html.escape(report.machine_id)}</h2>
           <div class="meta">
-            Incident <code>{html.escape(report.incident_id)}</code> ·
-            Source {html.escape(source)} ·
-            {sample_count} samples ·
+            Incident <code>{html.escape(report.incident_id)}</code> &middot;
+            Source {html.escape(source)} &middot;
+            {sample_count} samples &middot;
             {duration_seconds:.2f}s window
           </div>
         </div>
