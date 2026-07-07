@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Annotated
+from typing import Annotated, cast
 
 from amfd.backend.service import DiagnosisRequest, DiagnosisService, HealthResponse
 
@@ -39,7 +39,7 @@ async def diagnose(request: DiagnosisRequest) -> dict[str, object]:
         response = service.diagnose_window(request)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    return response.model_dump(mode="json")
+    return cast(dict[str, object], response.model_dump(mode="json"))
 
 
 @app.post("/api/v1/diagnose/csv")
@@ -51,12 +51,12 @@ async def diagnose_csv(
 ) -> dict[str, object]:
     csv_text = (await file.read()).decode("utf-8")
     response = service.diagnose_csv_text(csv_text, machine_id, operator_notes, force_human_review)
-    return response.model_dump(mode="json")
+    return cast(dict[str, object], response.model_dump(mode="json"))
 
 
 @app.get("/api/v1/demo")
 async def demo(machine_id: str = "PUMP-101") -> dict[str, object]:
-    return service.demo(machine_id).model_dump(mode="json")
+    return cast(dict[str, object], service.demo(machine_id).model_dump(mode="json"))
 
 
 @app.get("/metrics")

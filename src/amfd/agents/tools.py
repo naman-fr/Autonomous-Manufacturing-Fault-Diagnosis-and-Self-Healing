@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 from langchain_core.tools import tool
@@ -39,7 +39,7 @@ def anomaly_detector_tool(features: dict[str, float]) -> dict[str, Any]:
         config=config,
     )
     result = detector.predict(FeatureVector(**features))
-    return result.model_dump(mode="json")
+    return cast(dict[str, Any], result.model_dump(mode="json"))
 
 
 @tool
@@ -85,7 +85,7 @@ def safety_validator_tool(actions_json: str, severity: str) -> dict[str, Any]:
         actions,
         Severity(severity),
     )
-    return validation.model_dump(mode="json")
+    return cast(dict[str, Any], validation.model_dump(mode="json"))
 
 
 @tool

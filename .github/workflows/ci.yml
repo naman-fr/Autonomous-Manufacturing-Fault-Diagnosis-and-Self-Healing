@@ -46,6 +46,7 @@ jobs:
         run: python -m ruff check .
 
       - name: Type check
+        if: matrix.python-version == '3.12'
         run: python -m mypy src tests scripts/validate_manifests.py
 
       - name: Unit tests

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 from tempfile import NamedTemporaryFile
+from typing import cast
 
 from pydantic import BaseModel, Field
 
@@ -92,4 +93,7 @@ class DiagnosisService:
                 },
             }
         )
-        return DiagnosisResponse(report=result["report"], trace=result.get("trace", []))
+        return DiagnosisResponse(
+            report=cast(IncidentReport, result["report"]),
+            trace=cast(list[str], result.get("trace", [])),
+        )
