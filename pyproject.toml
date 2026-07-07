@@ -43,6 +43,11 @@ mlops = [
     "prometheus-client>=0.20",
     "confluent-kafka>=2.5",
 ]
+genai = [
+    "langchain-openai>=0.2.0",
+    "langchain-anthropic>=0.2.0",
+    "langchain-google-genai>=2.0.0",
+]
 
 [project.scripts]
 amfd-diagnose = "amfd.run_diagnosis:main"

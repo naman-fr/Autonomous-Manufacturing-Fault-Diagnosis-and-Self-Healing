@@ -6,8 +6,10 @@ review_probability_threshold: 0.72
 max_refinement_loops: 2
 synthetic_training_cases: 512
 artifact_dir: models
+prompt_path: configs/prompts.json
 policy_path: configs/actions.json
 knowledge_base_path: configs/knowledge_base.json
+training_scenarios_path: configs/training_scenarios.json
 llm_provider: auto
 llm_model: ""
 allowed_actions:

@@ -101,6 +101,7 @@ class IncidentReport(BaseModel):
     validation: SafetyValidation
     context: list[str] = Field(default_factory=list)
     rag_evidence: list[RetrievedEvidence] = Field(default_factory=list)
+    llm_summary: str | None = None
     guardrails: list[GuardrailFinding] = Field(default_factory=list)
     metrics: RuntimeMetrics = Field(default_factory=RuntimeMetrics)
     agent_messages: list[AgentMessage] = Field(default_factory=list)
@@ -118,6 +119,7 @@ class DiagnosisState(TypedDict, total=False):
     validation: SafetyValidation
     context: list[str]
     rag_evidence: list[RetrievedEvidence]
+    llm_summary: str | None
     guardrails: list[GuardrailFinding]
     human_review: HumanReview
     agent_messages: list[AgentMessage]

@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import json
 from time import perf_counter
 from typing import Any
 from uuid import uuid4
+
+from langchain_core.messages import HumanMessage, SystemMessage
 
 MemorySaver: Any = None
 StateGraph: Any = None
@@ -18,6 +21,8 @@ else:
     StateGraph = _StateGraph
     END = _END
 
+from amfd.agents.llm import bind_manufacturing_tools, resolve_chat_model  # noqa: E402
+from amfd.agents.prompts import PromptLibrary  # noqa: E402
 from amfd.core.catalog import ActionCatalog  # noqa: E402
 from amfd.core.config import DiagnosisConfig  # noqa: E402
 from amfd.core.models import (  # noqa: E402
@@ -46,6 +51,10 @@ class FaultDiagnosisWorkflow:
             high_risk_threshold=self.config.high_risk_threshold,
             config=self.config,
         )
+        self.prompts = PromptLibrary.load(self.config.prompt_path)
+        self.llm = resolve_chat_model(self.config)
+        if self.llm is not None:
+            self.llm = bind_manufacturing_tools(self.llm)
         self.retriever = HybridMaintenanceRetriever.from_config(self.config)
         self.action_catalog = ActionCatalog.load(self.config.policy_path)
         self.safety_policy = SafetyPolicy(self.config.allowed_actions)
@@ -105,7 +114,9 @@ class FaultDiagnosisWorkflow:
         )
         graph.add_edge("refine", "data_aug")
         graph.add_edge("analyzer", "rag")
-        graph.add_edge("rag", "prescriber")
+        graph.add_node("reasoner", self._reasoner)
+        graph.add_edge("rag", "reasoner")
+        graph.add_edge("reasoner", "prescriber")
         graph.add_edge("prescriber", "validate")
         graph.add_conditional_edges(
             "validate",
@@ -128,6 +139,7 @@ class FaultDiagnosisWorkflow:
             state = {**state, **self._detect(state)}
         state = {**state, **self._diagnose(state)}
         state = {**state, **self._retrieve_context(state)}
+        state = {**state, **self._reasoner(state)}
         state = {**state, **self._prescribe(state)}
         state = {**state, **self._validate(state)}
         if self._route_after_validation(state) == "human_review":
@@ -282,6 +294,61 @@ class FaultDiagnosisWorkflow:
             "trace": [*state.get("trace", []), "rag_retrieved"],
         }
 
+    def _reasoner(self, state: DiagnosisState) -> DiagnosisState:
+        if self.llm is None or HumanMessage is None or SystemMessage is None:
+            return {
+                "llm_summary": state.get("llm_summary"),
+                "agent_messages": [
+                    *state.get("agent_messages", []),
+                    AgentMessage(
+                        sender="reasoner",
+                        receiver="prescriber",
+                        content=(
+                            "Optional LLM reasoning is disabled; proceeding with grounded "
+                            "model outputs."
+                        ),
+                        message_type="evidence",
+                    ),
+                ],
+                "trace": [*state.get("trace", []), "reasoner_skipped"],
+            }
+
+        prompt = self.prompts.get("analyzer") or self.prompts.get("supervisor")
+        payload = {
+            "machine_id": state["machine_id"],
+            "severity": state["detection"].severity.value,
+            "root_cause": state["root_cause"].label,
+            "detection_evidence": state["detection"].evidence,
+            "retrieved_context": state.get("context", []),
+            "supporting_evidence": [
+                item.model_dump(mode="json") for item in state.get("rag_evidence", [])
+            ],
+        }
+        try:
+            response = self.llm.invoke(
+                [
+                    SystemMessage(content=prompt),
+                    HumanMessage(content=json.dumps(payload, indent=2)),
+                ]
+            )
+            summary = str(getattr(response, "content", response)).strip()
+        except Exception as exc:  # noqa: BLE001 - optional provider errors must not break workflow.
+            summary = f"LLM reasoning unavailable: {exc}"
+
+        return {
+            "llm_summary": summary,
+            "agent_messages": [
+                *state.get("agent_messages", []),
+                AgentMessage(
+                    sender="reasoner",
+                    receiver="prescriber",
+                    content="Generated optional grounded reasoning summary from configured LLM.",
+                    message_type="evidence",
+                ),
+            ],
+            "trace": [*state.get("trace", []), "reasoner_completed"],
+        }
+
     def _prescribe(self, state: DiagnosisState) -> DiagnosisState:
         severity = state["detection"].severity
         label = state["root_cause"].label
@@ -369,6 +436,7 @@ class FaultDiagnosisWorkflow:
             validation=state["validation"],
             context=state.get("context", []),
             rag_evidence=state.get("rag_evidence", []),
+            llm_summary=state.get("llm_summary"),
             guardrails=state.get("guardrails", []),
             metrics=state.get("metrics", RuntimeMetrics()),
             agent_messages=state.get("agent_messages", []),

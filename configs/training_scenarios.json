@@ -1,0 +1,46 @@
+[
+  {
+    "root_cause": "normal_operation",
+    "severity": "normal",
+    "intensity": 0.08,
+    "fault_frequency_hz": { "min": 30.0, "max": 40.0 }
+  },
+  {
+    "root_cause": "bearing_defect",
+    "severity": "warning",
+    "intensity": 0.28,
+    "fault_frequency_hz": { "min": 220.0, "max": 320.0 }
+  },
+  {
+    "root_cause": "bearing_defect",
+    "severity": "critical",
+    "intensity": 0.58,
+    "fault_frequency_hz": { "min": 240.0, "max": 360.0 }
+  },
+  {
+    "root_cause": "rotor_imbalance_or_misalignment",
+    "severity": "warning",
+    "intensity": 0.3,
+    "fault_frequency_hz": { "min": 20.0, "max": 55.0 }
+  },
+  {
+    "root_cause": "rotor_imbalance_or_misalignment",
+    "severity": "critical",
+    "intensity": 0.55,
+    "fault_frequency_hz": { "min": 18.0, "max": 50.0 }
+  },
+  {
+    "root_cause": "rpm_control_instability",
+    "severity": "warning",
+    "intensity": 0.25,
+    "fault_frequency_hz": { "min": 40.0, "max": 90.0 },
+    "rpm_nominal_offset": 40.0
+  },
+  {
+    "root_cause": "rpm_control_instability",
+    "severity": "critical",
+    "intensity": 0.6,
+    "fault_frequency_hz": { "min": 35.0, "max": 95.0 },
+    "rpm_nominal_offset": 40.0
+  }
+]

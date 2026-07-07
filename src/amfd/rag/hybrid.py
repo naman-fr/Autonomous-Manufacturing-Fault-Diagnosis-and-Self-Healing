@@ -11,53 +11,33 @@ from amfd.core.models import FeatureVector, RetrievedEvidence
 
 TOKEN_RE = re.compile(r"[a-zA-Z0-9_]+")
 
-DEFAULT_KNOWLEDGE_BASE = {
-    "cwru_bearing_notes": (
-        "CWRU bearing experiments include normal, inner race, outer race, and ball faults "
-        "under varied load and speed. Bearing defects create impulsive vibration and spectral "
-        "energy in the fault-band neighborhood."
-    ),
-    "pu_bearing_notes": (
-        "Paderborn bearing data includes vibration, motor current, speed, torque, radial load, "
-        "and temperature for healthy and damaged bearings."
-    ),
-    "maintenance_sop": (
-        "For high vibration, reduce load, inspect bearing lubrication and race damage, check "
-        "coupling alignment, and schedule controlled shutdown when critical."
-    ),
-    "control_loop_sop": (
-        "RPM drift with vibration can indicate drive instability, load fluctuation, or "
-        "control-loop calibration issues."
-    ),
-}
-
 
 class HybridMaintenanceRetriever:
     """Hybrid lexical + rerank retriever over the project knowledge base."""
 
     def __init__(self, documents: dict[str, str] | None = None) -> None:
-        self.documents = documents or DEFAULT_KNOWLEDGE_BASE
+        if not documents:
+            raise ValueError("Maintenance knowledge base cannot be empty.")
+        self.documents = documents
         self._tokenized = {key: self._tokens(text) for key, text in self.documents.items()}
         total_tokens = sum(len(tokens) for tokens in self._tokenized.values())
         self._avg_len = total_tokens / max(1, len(self._tokenized))
 
     @classmethod
     def load(cls, path: str | Path | None = None) -> HybridMaintenanceRetriever:
-        if path is None:
-            return cls()
-        kb_path = Path(path)
+        kb_path = Path(path or "configs/knowledge_base.json")
         if not kb_path.exists():
-            return cls()
+            raise FileNotFoundError(f"Knowledge base not found: {kb_path}")
         try:
             raw = json.loads(kb_path.read_text(encoding="utf-8"))
         except json.JSONDecodeError:
-            return cls()
+            raise ValueError(f"Knowledge base is not valid JSON: {kb_path}") from None
         documents = {
             str(key): str(value)
             for key, value in raw.items()
             if isinstance(key, str) and isinstance(value, str) and value.strip()
         }
-        return cls(documents or None)
+        return cls(documents)
 
     @classmethod
     def from_config(cls, config: DiagnosisConfig) -> HybridMaintenanceRetriever:

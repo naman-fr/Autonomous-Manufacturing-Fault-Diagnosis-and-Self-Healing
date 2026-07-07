@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -33,6 +34,16 @@ ROOT_CAUSE_LABELS = (
 )
 
 SEVERITY_LABELS = ("normal", "warning", "critical")
+
+
+@dataclass(frozen=True)
+class TrainingScenario:
+    root_cause: str
+    severity: str
+    intensity: float
+    frequency_min_hz: float
+    frequency_max_hz: float
+    rpm_nominal: float = 1800.0
 
 
 @dataclass(frozen=True)
@@ -112,40 +123,32 @@ class SignalModelBundle:
         severity_labels: list[str] = []
         root_labels: list[str] = []
 
-        scenarios = [
-            ("normal_operation", "normal", 0.08, (30.0, 40.0)),
-            ("bearing_defect", "warning", 0.28, (220.0, 320.0)),
-            ("bearing_defect", "critical", 0.58, (240.0, 360.0)),
-            ("rotor_imbalance_or_misalignment", "warning", 0.30, (20.0, 55.0)),
-            ("rotor_imbalance_or_misalignment", "critical", 0.55, (18.0, 50.0)),
-            ("rpm_control_instability", "warning", 0.25, (40.0, 90.0)),
-            ("rpm_control_instability", "critical", 0.60, (35.0, 95.0)),
-        ]
+        scenarios = _load_training_scenarios(config.training_scenarios_path)
         samples_per_scenario = max(24, config.synthetic_training_cases // len(scenarios))
 
         seed = 13
-        for root_cause, severity, intensity, frequency_range in scenarios:
+        for scenario in scenarios:
             for index in range(samples_per_scenario):
                 fault_frequency = _rand_uniform(
-                    frequency_range[0],
-                    frequency_range[1],
+                    scenario.frequency_min_hz,
+                    scenario.frequency_max_hz,
                     seed + index,
                 )
                 window = generate_machine_window(
-                    machine_id=f"TRAIN-{root_cause[:4].upper()}-{index:03d}",
-                    root_cause=root_cause,
-                    severity=severity,
+                    machine_id=f"TRAIN-{scenario.root_cause[:4].upper()}-{index:03d}",
+                    root_cause=scenario.root_cause,
+                    severity=scenario.severity,
                     sampling_rate_hz=config.sampling_rate_hz,
                     seconds=config.window_seconds,
                     seed=seed + index,
                     fault_frequency_hz=fault_frequency,
-                    fault_intensity=intensity,
-                    rpm_nominal=1800.0 + (40.0 if root_cause == "rpm_control_instability" else 0.0),
+                    fault_intensity=scenario.intensity,
+                    rpm_nominal=scenario.rpm_nominal,
                 )
                 features = extract_features(window)
                 rows.append(cls._feature_row(features))
-                severity_labels.append(severity)
-                root_labels.append(root_cause)
+                severity_labels.append(scenario.severity)
+                root_labels.append(scenario.root_cause)
             seed += 97
 
         severity_model = _make_pipeline().fit(rows, severity_labels)
@@ -265,3 +268,37 @@ def _severity_from_label(label: str) -> Severity:
     if label == "warning":
         return Severity.warning
     return Severity.normal
+
+
+def _load_training_scenarios(path: str | Path) -> list[TrainingScenario]:
+    scenario_path = Path(path)
+    if not scenario_path.exists():
+        raise FileNotFoundError(f"Training scenarios not found: {scenario_path}")
+
+    raw = json.loads(scenario_path.read_text(encoding="utf-8"))
+    if not isinstance(raw, list):
+        raise ValueError(f"Training scenarios must be a JSON array: {scenario_path}")
+
+    scenarios: list[TrainingScenario] = []
+    for item in raw:
+        if not isinstance(item, dict):
+            continue
+        frequency = item.get("fault_frequency_hz", {})
+        if not isinstance(frequency, dict):
+            continue
+        try:
+            scenario = TrainingScenario(
+                root_cause=str(item["root_cause"]),
+                severity=str(item["severity"]),
+                intensity=float(item["intensity"]),
+                frequency_min_hz=float(frequency["min"]),
+                frequency_max_hz=float(frequency["max"]),
+                rpm_nominal=float(item.get("rpm_nominal", 1800.0)),
+            )
+        except (KeyError, TypeError, ValueError):
+            continue
+        scenarios.append(scenario)
+
+    if not scenarios:
+        raise ValueError(f"Training scenarios file is empty or invalid: {scenario_path}")
+    return scenarios

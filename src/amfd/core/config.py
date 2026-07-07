@@ -15,8 +15,10 @@ class DiagnosisConfig(BaseModel):
     max_refinement_loops: int = Field(default=2, ge=0, le=10)
     synthetic_training_cases: int = Field(default=512, ge=32, le=10_000)
     artifact_dir: str = "models"
+    prompt_path: str = "configs/prompts.json"
     policy_path: str = "configs/actions.json"
     knowledge_base_path: str = "configs/knowledge_base.json"
+    training_scenarios_path: str = "configs/training_scenarios.json"
     llm_provider: str = "auto"
     llm_model: str = ""
     allowed_actions: tuple[str, ...] = (
