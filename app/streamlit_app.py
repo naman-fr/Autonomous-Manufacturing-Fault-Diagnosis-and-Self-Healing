@@ -68,7 +68,7 @@ with left:
 with right:
     st.subheader("Recommended Actions")
     for action in report.actions:
-        st.write(f"**{action.priority.upper()}** · `{action.action}`")
+        st.write(f"**{action.priority.upper()}** | `{action.action}`")
         st.caption(action.rationale)
 
 st.subheader("Evidence")
@@ -76,7 +76,7 @@ st.write(report.detection.evidence)
 
 st.subheader("Hybrid RAG Evidence")
 for item in report.rag_evidence:
-    st.write(f"**{item.source}** · BM25 {item.bm25_score:.2f} · Rerank {item.rerank_score:.2f}")
+    st.write(f"**{item.source}** | BM25 {item.bm25_score:.2f} | Rerank {item.rerank_score:.2f}")
     st.caption(item.text)
 
 st.subheader("Runtime Metrics")

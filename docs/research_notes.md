@@ -7,7 +7,8 @@ This project adapts agentic self-healing manufacturing concepts to rotating mach
 - Supervisor agent coordinates specialist tools.
 - Causal reasoning is represented as evidence-backed root-cause hypotheses.
 - Self-healing is implemented as validated maintenance prescriptions.
-- Continual learning hooks are present through synthetic augmentation and future MLflow experiments.
+- Continual learning hooks are present through synthetic augmentation, MLflow tracking, and future retraining loops.
+- The GenAI layer is optional and used only for explanation refinement, not for raw signal classification.
 
 ## Dataset Path
 
@@ -17,6 +18,16 @@ The default demo uses generated vibration samples. The intended benchmark extens
 2. Extract time-domain and FFT-domain features.
 3. Train baseline detectors and compare against augmented training sets.
 4. Report F1, false-alarm rate, latency, and action-plan acceptance rate.
+
+The synthetic training scenarios are defined in `configs/training_scenarios.json`, which makes the augmentation setup editable without code edits.
+
+## Validation Plan
+
+- Verify signal ingestion on a known-good CSV and one fault CSV.
+- Compare bundle predictions with and without synthetic augmentation.
+- Measure latency end to end, not just model inference.
+- Check that generated maintenance actions stay within approved policy bounds.
+- Review the human-in-loop path for ambiguous or unsafe cases.
 
 ## Sources
 

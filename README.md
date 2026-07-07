@@ -7,64 +7,68 @@ app_file: app.py
 
 # Autonomous Manufacturing Fault Diagnosis and Self-Healing
 
-Production-grade reference implementation for a LangGraph-powered multi-agent system that diagnoses rotating-machinery faults from vibration/RPM signals and emits safety-gated self-healing maintenance plans.
+Production-grade reference implementation for a LangGraph-powered multi-agent system that diagnoses rotating-machinery faults from vibration/RPM signals and produces safety-gated maintenance actions.
 
-The project is intentionally deployable without an API key: deterministic signal tools run locally, while the agent/tool registry is ready for Claude, GPT, Gemini, Llama, vLLM, or any LangChain-compatible chat model through `.bind_tools()`.
+The default path is fully local and deterministic. Optional GenAI reasoning can be enabled through configuration when you want an LLM to summarize evidence or assist the operator workflow. No core behavior is hardcoded into the UI or API surface.
 
-## Architecture Diagram
+## What It Does
+
+- Ingests vibration and RPM windows from CSV, synthetic demos, or API calls.
+- Extracts signal features locally and scores them with a persisted model bundle.
+- Routes incidents through a LangGraph workflow with guardrails, retrieval, prescription, safety validation, and human review.
+- Loads prompts, maintenance policies, training scenarios, and knowledge snippets from config files.
+- Supports optional chat-model reasoning with LangChain tool binding.
+- Exposes the same core service through Gradio, FastAPI, Streamlit, and a local HTTP console.
+
+## Architecture
 
 ```mermaid
 flowchart LR
-    A["Kafka stream / CSV upload"] --> B["Supervisor agent"]
-    B --> C["Guardrails + PII redaction"]
-    C --> D["DataAug specialist<br/>VAE-WGAN-GP hook"]
-    D --> E["Detector specialist<br/>FFT + anomaly tools"]
-    E --> F{"confidence >= policy?"}
-    F -- "No" --> D
-    F -- "Yes" --> G["Analyzer specialist<br/>causal inference"]
-    G --> H["Hybrid RAG<br/>BM25 + ColBERT-style rerank"]
-    H --> I["Prescriber specialist<br/>JSON recovery plan"]
-    I --> J["Safety validator"]
-    J --> K{"human review needed?"}
-    K -- "Yes" --> L["Human-in-loop approval"]
-    K -- "No" --> M["Incident report"]
-    L --> M
-    M --> N["Streamlit + MLflow + Prometheus"]
+    A["CSV upload / local demo / Kafka stream"] --> B["Guardrails"]
+    B --> C["Feature extraction"]
+    C --> D["Signal model bundle"]
+    D --> E{"confidence low?"}
+    E -- "yes" --> C
+    E -- "no" --> F["Hybrid RAG"]
+    F --> G["Optional LLM reasoner"]
+    G --> H["Action catalog"]
+    H --> I["Safety validator"]
+    I --> J{"human review?"}
+    J -- "yes" --> K["Operator approval"]
+    J -- "no" --> L["Incident report"]
+    K --> L
+    L --> M["UI / API / metrics"]
 ```
 
-## What Is Included
-
-- LangGraph `StateGraph` workflow with cycles, conditional edges, persistence, and a human-review branch.
-- Supervisor plus specialist agents: Guardrails, DataAug, Detector, Analyzer, RAG, Prescriber, Safety.
-- A2A communication through typed `AgentMessage` objects in the graph state.
-- Six custom LangChain tools bound through `bind_manufacturing_tools(llm)`.
-- Hybrid retrieval scaffold with BM25 scoring and lightweight ColBERT-style late-interaction reranking.
-- VAE-WGAN-GP augmentation hook for future trained synthetic fault generation.
-- Kafka consumer scaffold for streaming `SensorWindow` payloads.
-- Streamlit dashboard with CSV upload, Plotly visualization, RAG evidence, metrics, and JSON reports.
-- MLOps assets: MLflow tracker, Prometheus metrics, Docker, Kubernetes, GitHub Actions, eval harness.
-- Security layer: local guardrails, prompt-injection checks, email/phone redaction, safety validator.
+The deeper system view lives in [docs/architecture.md](docs/architecture.md).
 
 ## Repository Layout
 
 ```text
 .
-|-- app/                         # Streamlit operator dashboard
-|-- configs/                     # Runtime and threshold config
-|-- docs/                        # Architecture, prompts, research notes
-|-- examples/                    # Demo sensor files
-|-- k8s/                         # Kubernetes manifests
-|-- src/amfd/                    # Python package
-|   |-- agents/                  # LangGraph workflow, prompts, tools, LLM binding
-|   |-- core/                    # Config, domain models, safety policy
-|   |-- data/                    # CSV ingestion, synthetic data, Kafka streaming
-|   |-- ml/                      # Features, anomaly scoring, augmentation hook
-|   |-- mlops/                   # MLflow tracking
-|   |-- rag/                     # Hybrid retriever
-|   |-- security/                # Guardrails and PII redaction
-|   `-- telemetry/               # Metrics helpers
-`-- tests/                       # Unit and workflow tests
+|-- app.py                    # Gradio Space entrypoint
+|-- app/                      # Optional Streamlit UI
+|-- configs/                  # Default config, prompts, policies, scenarios
+|-- docs/                     # Architecture, config, deployment, research notes
+|-- examples/                 # Demo sensor CSVs
+|-- k8s/                      # Kubernetes manifests
+|-- scripts/                  # Local server, demo, manifest validation
+|-- src/amfd/                 # Python package
+|-- tests/                    # Unit and integration tests
+`-- web/                      # Static local console assets
 ```
+
+## Configuration
+
+The runtime is driven by files, not embedded rules:
+
+- `configs/default.yaml`
+- `configs/actions.json`
+- `configs/knowledge_base.json`
+- `configs/prompts.json`
+- `configs/training_scenarios.json`
+
+The full reference is in [docs/configuration.md](docs/configuration.md).
 
 ## Quick Start
 
@@ -72,64 +76,78 @@ flowchart LR
 python -m venv .venv
 . .venv/Scripts/activate
 pip install -r requirements.txt
-pip install -e ".[dev,backend,app,mlops]"
-pytest
+pip install -e ".[dev,backend,app,mlops,genai]"
 ```
 
-## Run It Locally
+## Run Locally
 
-### Option A: zero-extra local console
-
-This path runs the API and browser frontend with the same local Python environment used by the core package.
+### Gradio Space entrypoint
 
 ```bash
-$env:PYTHONPATH="src"
+python app.py
+```
+
+Open the printed local URL, load the demo window, or upload `examples/bearing_sample.csv`.
+
+### Local HTTP console
+
+```bash
 python scripts/local_server.py
 ```
 
-Open [http://127.0.0.1:8765](http://127.0.0.1:8765), click **Run Demo**, or upload `examples/bearing_sample.csv`.
+Open `http://127.0.0.1:8765` and use the browser UI.
 
-### Option B: production FastAPI backend
+### FastAPI backend
 
 ```bash
 uvicorn amfd.backend.api:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-Useful checks:
+Useful endpoints:
 
-```bash
-curl http://127.0.0.1:8000/health
-curl http://127.0.0.1:8000/api/v1/demo
-```
+- `GET /health`
+- `GET /api/v1/demo`
+- `POST /api/v1/diagnose`
+- `POST /api/v1/diagnose/csv`
 
-### Option C: Streamlit dashboard
+### Streamlit
 
 ```bash
 streamlit run app/streamlit_app.py
 ```
 
-## CLI Demo
+### CLI
 
 ```bash
 python -m amfd.run_diagnosis examples/bearing_sample.csv --machine-id PUMP-101
 ```
 
-## Eval
+## Verify
 
 ```bash
+python -m ruff format --check .
+python -m ruff check .
+python -m pytest -q
 python eval.py
 ```
 
-Current local synthetic benchmark target:
+`eval.py` runs the synthetic evaluation harness and prints the current latency and F1 proxy.
 
-| Metric | Target | Harness |
-| --- | ---: | --- |
-| Fault-class F1 proxy | > 0.95 | `eval.py` synthetic bearing cases |
-| Diagnosis latency | < 2000 ms | graph end-to-end timer |
-| Safety approval traceability | 100% | typed report validation |
-| Operator explainability | 100% reports include evidence | RAG + detector evidence |
+## Optional GenAI
 
-These are engineering targets, not claims about the untrained baseline on CWRU/PU. Real benchmark numbers should be reported after training/evaluating against CWRU and Paderborn splits.
+The system runs without any API key. If you want the optional reasoning node, set:
+
+- `llm_provider`: `auto`, `openai`, `anthropic`, or `gemini`
+- `llm_model`: explicit model name, or use the provider-specific `*_MODEL` env var
+
+Common secrets for Hugging Face Spaces or local env files:
+
+- `OPENAI_API_KEY`
+- `ANTHROPIC_API_KEY`
+- `GOOGLE_API_KEY`
+- `KUBE_CONFIG` for Kubernetes deployment
+
+The exact model and provider flow is documented in [docs/configuration.md](docs/configuration.md).
 
 ## Deployment
 
@@ -138,47 +156,25 @@ docker compose up --build
 kubectl apply -f k8s/deployment.yaml
 ```
 
-## CI/CD
+CI/CD and release details are in [docs/deployment.md](docs/deployment.md).
 
-GitHub Actions runs a full correctness gate on every PR and push to `main`:
+## Data Format
 
-- Ruff format and lint checks.
-- Mypy over `src` and `tests`.
-- Pytest with coverage.
-- Synthetic evaluation smoke test.
-- Backend service smoke test.
-- Docker image build.
-- Kubernetes manifest dry-run validation.
+CSV input must contain a `vibration` column and can optionally include `rpm`.
 
-Release flow:
+Example:
 
-1. Push a version tag such as `v0.1.0`, or run the `cd` workflow manually.
-2. The pipeline builds and pushes `ghcr.io/naman-fr/amfd-api`.
-3. Kubernetes deployment is gated behind the repository variable `ENABLE_K8S_DEPLOY=true`, the `production` environment, and a `KUBE_CONFIG` secret.
-
-Production notes:
-
-- Run Streamlit separately from graph workers for high-throughput streaming use cases.
-- Use Kafka for sensor windows and persist graph checkpoints to Redis/Postgres in production.
-- Replace the heuristic detector with a trained CNN/transformer/TensorRT model behind the same tool interface.
-- Run vLLM/TensorRT-LLM as an inference backend when using local open-weight models.
-- Keep all maintenance actions advisory until integrated with plant-approved PLC/SCADA controls.
-
-## Demo Video Script
-
-1. Open the dashboard and upload `examples/bearing_sample.csv`.
-2. Show waveform, anomaly score, root cause, and RAG evidence.
-3. Open the JSON report and highlight the agent trace.
-4. Force human review through metadata in a CLI run and show the review branch.
-5. Run `python eval.py` and show latency/F1 target output.
-6. Show Docker/K8s/CI files to demonstrate deployability.
-
-## Research Alignment
-
-- Kevin Patel, "Agentic AI for Self-Healing Production Lines: Autonomous Root Cause Analysis & Correction", JISEM, 2024. DOI: 10.52783/jisem.v9i4s.12427.
-- Xian Yeow Lee, Lasitha Vidyaratne, Ahmed Farahat, Chetan Gupta, "Exploring LLM-based Agentic Frameworks for Fault Diagnosis", PHM Society, 2025. DOI: 10.36001/phmconf.2025.v17i1.4350.
-- CWRU Bearing Data Center and Paderborn University Bearing Data Center are the intended benchmark data sources for seeded and naturally damaged bearing faults.
+```csv
+vibration,rpm
+0.01,1798
+0.02,1801
+0.04,1799
+```
 
 ## Safety
 
-This project generates advisory maintenance plans only. It does not directly actuate industrial equipment. Critical actions require approval through the safety and human-review layers before plant integration.
+This project emits advisory maintenance actions only. It does not directly actuate equipment. Critical actions remain behind safety validation and human review.
+
+## Research Alignment
+
+See [docs/research_notes.md](docs/research_notes.md) for the paper alignment, benchmark path, and dataset plan.
